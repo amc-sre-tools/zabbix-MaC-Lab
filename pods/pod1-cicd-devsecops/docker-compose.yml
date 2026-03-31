@@ -37,13 +37,13 @@ services:
       - "50000:50000"
     volumes:
       - pod1-jenkins-home:/var/jenkins_home
-      - /var/run/podman.sock:/var/run/podman.sock
+      # - /var/run/podman.sock:/var/run/podman.sock  # Only for production with proper permissions
       - ./pods/pod1-cicd-devsecops/config/jenkins_init.groovy:/var/jenkins_init.groovy:ro
       - ./pods/pod1-cicd-devsecops/config/jenkinsfile-ci:/var/jenkinsfile-ci:ro
       - ./pods/pod1-cicd-devsecops/config/jenkinsfile-cd:/var/jenkinsfile-cd:ro
     environment:
       JENKINS_OPTS: "--prefix=/jenkins"
-      PODMAN_SOCKET: /var/run/podman.sock
+      # PODMAN_SOCKET: /var/run/podman.sock  # Uncomment for production
       BAO_ADDR: http://pod1-openbao:8200
       BAO_TOKEN: ${BAO_DEV_ROOT_TOKEN_ID}
     networks:
@@ -56,7 +56,7 @@ services:
       retries: 5
     depends_on:
       pod1-openbao:
-        condition: service_healthy
+        condition: service_started
 
   # =============================================================================
   # POD1: CI/CD + DevSecOps - SonarQube (Code Analysis)
@@ -68,7 +68,7 @@ services:
     environment:
       POSTGRES_DB: sonarqube
       POSTGRES_USER: ${SONARQUBE_DB_USER:-sonarqube}
-      POSTGRES_PASSWORD: ${SONARQUBE_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${SONARQUBE_DB_PASSWORD:-sonar_dev_password}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - pod1-sonarqube-db-data:/var/lib/postgresql/data
@@ -90,7 +90,7 @@ services:
     environment:
       SONAR_JDBC_URL: jdbc:postgresql://pod1-sonarqube-db:5432/sonarqube
       SONAR_JDBC_USERNAME: ${SONARQUBE_DB_USER:-sonarqube}
-      SONAR_JDBC_PASSWORD: ${SONARQUBE_DB_PASSWORD}
+      SONAR_JDBC_PASSWORD: ${SONARQUBE_DB_PASSWORD:-sonar_dev_password}
       SONAR_WEB_CONTEXT: /
     volumes:
       - pod1-sonarqube-data:/opt/sonarqube/data
@@ -109,13 +109,13 @@ services:
       start_period: 60s
     depends_on:
       pod1-sonarqube-db:
-        condition: service_healthy
+        condition: service_started
 
   # =============================================================================
   # POD1: CI/CD + DevSecOps - Trivy Scanner (Security)
   # =============================================================================
   pod1-trivy:
-    image: aquasec/trivy:latest
+    image: ghcr.io/aquasecurity/trivy:latest
     container_name: pod1-cicd-trivy
     hostname: pod1-trivy
     volumes:
