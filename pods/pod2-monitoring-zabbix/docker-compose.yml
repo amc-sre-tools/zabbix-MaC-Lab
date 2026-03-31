@@ -1,0 +1,215 @@
+services:
+  # =============================================================================
+  # POD2: Monitoring - PostgreSQL for Zabbix databases
+  # =============================================================================
+  pod2-postgresql:
+    image: postgres:15
+    container_name: pod2-monitoring-postgresql
+    hostname: pod2-postgresql
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-zabbix}
+      POSTGRES_USER: ${POSTGRES_USER:-zabbix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pod2-postgresql-data:/var/lib/postgresql/data
+      - ./pods/pod2-monitoring-zabbix/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zabbix}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # POD2: Monitoring - Zabbix 6.0 LTS
+  # =============================================================================
+  pod2-zabbix-server-6.0:
+    image: zabbix/zabbix-server-mysql:alpine-6.0-latest
+    container_name: pod2-zabbix-6.0-server
+    hostname: pod2-zabbix-6.0-server
+    ports:
+      - "10060:10060"
+    env_file:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix-6.0.env
+    environment:
+      DB_SERVER_HOST: pod2-postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_CACHESIZE: 512M
+      ZBX_HISTORYCACHESIZE: 128M
+      ZBX_TRENDCACHESIZE: 128M
+    volumes:
+      - pod2-zabbix6-data:/var/lib/zabbix
+      - ./pods/pod2-monitoring-zabbix/scripts/:/usr/local/bin/:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      pod2-postgresql:
+        condition: service_healthy
+
+  pod2-zabbix-web-6.0:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-6.0-latest
+    container_name: pod2-zabbix-6.0-web
+    hostname: pod2-zabbix-6.0-web
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix-6.0.env
+    environment:
+      DB_SERVER_HOST: pod2-postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_SERVER_NAME: "Zabbix 6.0 LTS - Testing"
+      PHP_TZ: America/New_York
+    volumes:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix.conf.php:/etc/zabbix/web/zabbix.conf.php:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      - pod2-zabbix-server-6.0
+
+  # =============================================================================
+  # POD2: Monitoring - Zabbix 7.0
+  # =============================================================================
+  pod2-zabbix-server-7.0:
+    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
+    container_name: pod2-zabbix-7.0-server
+    hostname: pod2-zabbix-7.0-server
+    ports:
+      - "10070:10060"
+    env_file:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix-7.0.env
+    environment:
+      DB_SERVER_HOST: pod2-postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_CACHESIZE: 512M
+      ZBX_HISTORYCACHESIZE: 128M
+      ZBX_TRENDCACHESIZE: 128M
+    volumes:
+      - pod2-zabbix7-data:/var/lib/zabbix
+      - ./pods/pod2-monitoring-zabbix/scripts/:/usr/local/bin/:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      pod2-postgresql:
+        condition: service_healthy
+
+  pod2-zabbix-web-7.0:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    container_name: pod2-zabbix-7.0-web
+    hostname: pod2-zabbix-7.0-web
+    ports:
+      - "8081:8080"
+    env_file:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix-7.0.env
+    environment:
+      DB_SERVER_HOST: pod2-postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_SERVER_NAME: "Zabbix 7.0 - Testing"
+      PHP_TZ: America/New_York
+    volumes:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix.conf.php:/etc/zabbix/web/zabbix.conf.php:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      - pod2-zabbix-server-7.0
+
+  # =============================================================================
+  # POD2: Monitoring - Zabbix 7.4 (Latest)
+  # =============================================================================
+  pod2-zabbix-server-7.4:
+    image: zabbix/zabbix-server-mysql:alpine-7.4-latest
+    container_name: pod2-zabbix-7.4-server
+    hostname: pod2-zabbix-7.4-server
+    ports:
+      - "10074:10060"
+    env_file:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix-7.4.env
+    environment:
+      DB_SERVER_HOST: pod2-postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_CACHESIZE: 512M
+      ZBX_HISTORYCACHESIZE: 128M
+      ZBX_TRENDCACHESIZE: 128M
+    volumes:
+      - pod2-zabbix74-data:/var/lib/zabbix
+      - ./pods/pod2-monitoring-zabbix/scripts/:/usr/local/bin/:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      pod2-postgresql:
+        condition: service_healthy
+
+  pod2-zabbix-web-7.4:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.4-latest
+    container_name: pod2-zabbix-7.4-web
+    hostname: pod2-zabbix-7.4-web
+    ports:
+      - "8082:8080"
+    env_file:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix-7.4.env
+    environment:
+      DB_SERVER_HOST: pod2-postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_SERVER_NAME: "Zabbix 7.4 LTS - Testing"
+      PHP_TZ: America/New_York
+    volumes:
+      - ./pods/pod2-monitoring-zabbix/config/zabbix.conf.php:/etc/zabbix/web/zabbix.conf.php:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      - pod2-zabbix-server-7.4
+
+  # =============================================================================
+  # POD2: Monitoring - Zabbix Agent (for all versions)
+  # =============================================================================
+  pod2-zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-latest
+    container_name: pod2-zabbix-agent
+    hostname: pod2-zabbix-agent
+    ports:
+      - "10050:10050"
+    environment:
+      ZBX_HOSTNAME: zabbix-agent-host
+      ZBX_SERVER_HOST: 127.0.0.1
+    volumes:
+      - pod2-zabbix-agent-data:/var/lib/zabbix
+      - ./pods/pod2-monitoring-zabbix/config/zabbix_agentd.conf:/etc/zabbix/zabbix_agentd.conf:ro
+    networks:
+      - pod2-monitoring-internal
+    restart: unless-stopped
+
+networks:
+  pod2-monitoring-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.20.0/24
+
+volumes:
+  pod2-postgresql-data:
+  pod2-zabbix6-data:
+  pod2-zabbix7-data:
+  pod2-zabbix74-data:
+  pod2-zabbix-agent-data:

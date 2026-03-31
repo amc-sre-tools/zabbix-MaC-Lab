@@ -1,4 +1,4 @@
-# SPEC: Ambiente de Pruebas Zabbix Multi-Versión
+# SPEC: Ambiente de Pruebas Zabbix Multi-POD
 
 ## Autor
 
@@ -13,32 +13,50 @@
 |------|------------|
 | **Hypervisor** | UTM 4.7.4 (QEMU) |
 | **IaC VM** | Script shell + AppleScript |
-| **IaC Containers** | Podman Compose |
+| **IaC Containers** | **Podman Compose** (no Docker) |
 | **Secretos** | OpenBao (KV v2) |
 | **Testing** | pytest + coverage >85% |
 | **Seguridad** | OWASP + Trivy + Bandit + Hadolint |
-| **CI/CD** | GitHub Actions |
+| **CI/CD** | Jenkins (POD1) - GitHub Actions (.github-backup) |
 | **Code Analysis** | SonarQube |
+| **Observabilidad** | Prometheus + Grafana + Elasticsearch + OTel |
+| **IaC** | Terraform + Ansible |
 
 ---
 
-## 2. Arquitectura
+## 2. Arquitectura Multi-POD
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      MAC CON UTM 4.7.4                             │
-│                                                                     │
-│   ┌─────────────────────────────────────────────────────────────┐  │
-│   │         Ubuntu Server 24.04 LTS VM (4 vCPU, 8GB, 70GB)      │  │
-│   │                                                              │  │
-│   │  ┌─────────┐  ┌──────────┐  ┌──────────────────┐          │  │
-│   │  │   LVM   │  │  Podman  │  │     OpenBao      │          │  │
-│   │  │  3 LV   │  │ Compose  │  │     (KV v2)      │          │  │
-│   │  └─────────┘  └──────────┘  └──────────────────┘          │  │
-│   │                                                              │  │
-│   │  Zabbix 6.0  •  Zabbix 7.0  •  Zabbix 7.4                   │  │
-│   │  PostgreSQL  •  Nginx  •  FastAPI (logs JSON)                │  │
-│   └─────────────────────────────────────────────────────────────┘  │
+│                    ZABBIX TESTING ENVIRONMENT                       │
+│                     5 PODs with Podman                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ POD1: CI/CD + DevSecOps         (10.99.10.0/24)            │   │
+│  │ OpenBao :8200  |  Jenkins :8080  |  SonarQube :9000         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ POD2: Monitoring Zabbix       (10.99.20.0/24)              │   │
+│  │ PostgreSQL :5432  |  Zabbix 6.0/7.0/7.4  |  Agent :10050   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ POD3: Services Demo         (10.99.30.0/24)                 │   │
+│  │ MySQL :3306  |  Redis :6379  |  RabbitMQ :5672  | Nginx :80  │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ POD4: Observability DORA      (10.99.40.0/24)              │   │
+│  │ Prometheus :9090  |  Grafana :3000  |  ES :9200  | OTel     │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ POD5: Provisioning          (10.99.50.0/24)                 │   │
+│  │ Terraform  |  Ansible  |  AWS/Azure/GCP CLI  |  InSpec      │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -50,22 +68,15 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    CAPAS DE ARQUITECTURA                    │
 ├─────────────────────────────────────────────────────────────┤
-│  PRESENTATION (README, docs, workflows)                       │
+│  PRESENTATION (README, SPEC.md, docs, workflows)            │
 │                           ▲                                   │
-│  APPLICATION (scripts, ansible, docker-compose)              │
+│  APPLICATION (scripts/, ansible/, pods/*/docker-compose.yml) │
 │                           ▲                                   │
-│  DOMAIN (configs: fastapi, nginx, openbao)                   │
+│  DOMAIN (configs/: openbao, nginx, zabbix, prometheus)       │
 │                           ▲                                   │
-│  INFRASTRUCTURE (tests, tools, pyproject.toml)               │
+│  INFRASTRUCTURE (tests/, tools/, pyproject.toml)             │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-### Principios
-
-- **Dependency Inversion**: Capas superiores no dependen de inferiores
-- **Single Responsibility**: Cada componente responsabilidad clara
-- **Separation of Concerns**: Scripts, configs, tests separados
-- **DRY**: Configuraciones centralizadas
 
 ---
 
@@ -95,24 +106,77 @@
 
 | Red | Subred | Propósito |
 |-----|--------|-----------|
-| `bridge-zabbix` | 10.88.10.0/24 | Servidores Zabbix |
-| `bridge-servicios` | 10.88.20.0/24 | PostgreSQL, Nginx, FastAPI |
-| `bridge-secrets` | 10.88.30.0/24 | OpenBao |
+| `pod1-cicd-internal` | 10.99.10.0/24 | CI/CD + DevSecOps |
+| `pod2-monitoring-internal` | 10.99.20.0/24 | Zabbix + PostgreSQL |
+| `pod3-services-internal` | 10.99.30.0/24 | Demo Services |
+| `pod4-observability-internal` | 10.99.40.0/24 | Prometheus + Grafana |
+| `pod5-provisioning-internal` | 10.99.50.0/24 | Terraform + Ansible |
 
 ---
 
-## 7. Componentes
+## 7. Componentes por POD
+
+### POD1: CI/CD + DevSecOps
 
 | Componente | Tipo | Versión | Red | Puertos |
 |------------|------|---------|-----|---------|
-| OpenBao | Contenedor | 2.5.x | bridge-secrets | 8200 |
-| Zabbix 6.0 | Contenedor | 6.0-latest | bridge-zabbix | 10060, 8080 |
-| Zabbix 7.0 | Contenedor | 7.0-latest | bridge-zabbix | 10070, 8081 |
-| Zabbix 7.4 | Contenedor | 7.4-latest | bridge-zabbix | 10074, 8082 |
-| PostgreSQL | Contenedor | 15 | bridge-servicios | 5432 |
-| Nginx | Contenedor | latest | bridge-servicios | 80, 443 |
-| FastAPI | Contenedor | Python 3.11 | bridge-servicios | 8000 |
-| SonarQube | Contenedor | 10.4 | bridge-servicios | 9000 |
+| OpenBao | Contenedor | latest | pod1-cicd-internal | 8200 |
+| Jenkins | Contenedor | LTS | pod1-cicd-internal | 8080, 50000 |
+| SonarQube | Contenedor | 10.4-community | pod1-cicd-internal | 9000 |
+| PostgreSQL (SonarQube) | Contenedor | 15 | pod1-cicd-internal | 5432 |
+| Trivy | Contenedor | latest | pod1-cicd-internal | 4954 |
+
+### POD2: Monitoring Zabbix
+
+| Componente | Tipo | Versión | Red | Puertos |
+|------------|------|---------|-----|---------|
+| PostgreSQL | Contenedor | 15 | pod2-monitoring-internal | 5432 |
+| Zabbix Server 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 10060 |
+| Zabbix Web 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 8080 |
+| Zabbix Server 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 10070 |
+| Zabbix Web 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 8081 |
+| Zabbix Server 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 10074 |
+| Zabbix Web 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 8082 |
+| Zabbix Agent | Contenedor | latest | pod2-monitoring-internal | 10050 |
+
+### POD3: Services Demo
+
+| Componente | Tipo | Versión | Red | Puertos |
+|------------|------|---------|-----|---------|
+| MySQL | Contenedor | 8.0 | pod3-services-internal | 3306 |
+| Redis | Contenedor | 7-alpine | pod3-services-internal | 6379 |
+| MariaDB | Contenedor | 11 | pod3-services-internal | 3307 |
+| RabbitMQ | Contenedor | 3.13-management-alpine | pod3-services-internal | 5672, 15672 |
+| Nginx | Contenedor | alpine | pod3-services-internal | 80, 443 |
+| FastAPI | Contenedor | Python 3.11 | pod3-services-internal | 8000 |
+| Node Exporter | Contenedor | latest | pod3-services-internal | 9100 |
+
+### POD4: Observability DORA
+
+| Componente | Tipo | Versión | Red | Puertos |
+|------------|------|---------|-----|---------|
+| Prometheus | Contenedor | latest | pod4-observability-internal | 9090 |
+| Alertmanager | Contenedor | latest | pod4-observability-internal | 9093 |
+| Grafana | Contenedor | latest | pod4-observability-internal | 3000 |
+| Elasticsearch | Contenedor | 8.12.0 | pod4-observability-internal | 9200, 9300 |
+| Kibana | Contenedor | 8.12.0 | pod4-observability-internal | 5601 |
+| OTel Collector | Contenedor | contrib | pod4-observability-internal | 4317, 4318, 8888, 8889 |
+| cAdvisor | Contenedor | latest | pod4-observability-internal | 8080 |
+| MySQL Exporter | Contenedor | latest | pod4-observability-internal | 9104 |
+
+### POD5: Provisioning
+
+| Componente | Tipo | Versión | Red |
+|------------|------|---------|-----|
+| Terraform | Contenedor | 1.7-light | pod5-provisioning-internal |
+| Ansible Runner | Contenedor | latest | pod5-provisioning-internal |
+| Ansible Navigator | Contenedor | latest | pod5-provisioning-internal |
+| AWS CLI | Contenedor | 2.15 | pod5-provisioning-internal |
+| Azure CLI | Contenedor | latest | pod5-provisioning-internal |
+| GCP CLI | Contenedor | latest | pod5-provisioning-internal |
+| InSpec | Contenedor | latest | pod5-provisioning-internal |
+| Checkov | Contenedor | latest | pod5-provisioning-internal |
+| Terraform Docs | Contenedor | latest | pod5-provisioning-internal |
 
 ---
 
@@ -121,286 +185,212 @@
 | Secret Path | Claves |
 |-------------|--------|
 | `secret/data/postgresql/admin` | `postgres_password`, `zabbix_password` |
-| `secret/data/zabbix/credentials` | `db_password`, `db_user` |
+| `secret/data/zabbix/credentials` | `db_user`, `db_password` |
 | `secret/data/zabbix/api-keys` | `api_token` |
 | `secret/data/fastapi/app` | `secret_key`, `api_key` |
-| `secret/data/nginx/ssl` | `cert`, `key`, `dhparam` |
+| `secret/data/jenkins/credentials` | `admin_password`, `jenkins_token` |
+| `secret/data/grafana` | `admin_password` |
+| `secret/data/elasticsearch` | `password` |
 
 ---
 
-## 9. Testing y Calidad (TDD)
+## 9. Scripts Globales
 
-### Estructura de Tests
-
-```
-tests/
-├── unit/
-│   └── test_scripts.py           # Tests unitarios
-├── integration/
-│   └── test_services.py         # Tests de integración
-├── security/
-│   └── test_security.py         # Tests de seguridad
-└── requirements.txt              # Dependencias de test
-```
-
-### Cobertura Requerida
-
-| Objetivo | Mínimo |
-|----------|--------|
-| Cobertura total | > 85% |
-| Scripts | 100% |
-| Configs | 80% |
-
-### Marcadores
-
-| Marcador | Descripción |
-|----------|-------------|
-| `@pytest.mark.unit` | Tests unitarios |
-| `@pytest.mark.integration` | Tests de integración |
-| `@pytest.mark.security` | Tests de seguridad |
-| `@pytest.mark.slow` | Tests > 5 segundos |
+| Script | Propósito | Uso |
+|--------|-----------|-----|
+| `init-all-pods.sh` | Inicializa redes y verifica configs | `./scripts/init-all-pods.sh` |
+| `init-secrets.sh` | Pobla OpenBao con secretos | `./scripts/init-secrets.sh -t <token>` |
+| `load-secrets.sh` | Carga secretos a .env | `./scripts/load-secrets.sh` |
+| `backup-weekly.sh` | Backup semanal de volúmenes | `BACKUP_DIR=/path ./scripts/backup-weekly.sh` |
+| `health-check.sh` | Verifica salud de PODs | `./scripts/health-check.sh [--verbose] [--json]` |
 
 ---
 
-## 10. Seguridad DevSecOps
+## 10. GitOps y Configuración como Código
 
-### Herramientas OWASP
+### Estructura GitOps
 
-| Herramienta | Propósito | Instalación |
-|-------------|-----------|--------------|
-| **Trivy** | Vulnerability scanning | `tools/security/setup-security-tools.sh` |
-| **Bandit** | Python security | `pip install bandit` |
-| **Hadolint** | Dockerfile lint | `tools/security/setup-security-tools.sh` |
-| **Semgrep** | Static analysis | `pip install semgrep` |
-| **Checkov** | IaC security | `pip install checkov` |
+```
+pods/
+├── pod1-cicd-devsecops/
+│   ├── docker-compose.yml      # Orquestación
+│   ├── config/                 # Configs mounted as volumes
+│   │   ├── openbao.hcl
+│   │   ├── jenkinsfile-ci
+│   │   ├── jenkinsfile-cd
+│   │   ├── sonar-project.properties
+│   │   └── .trivy.yml
+│   ├── scripts/
+│   └── data/
+│
+├── pod2-monitoring-zabbix/
+│   ├── docker-compose.yml
+│   ├── config/
+│   │   ├── zabbix-6.0.env
+│   │   ├── zabbix-7.0.env
+│   │   ├── zabbix-7.4.env
+│   │   ├── zabbix.conf.php
+│   │   ├── postgresql.conf
+│   │   └── zabbix_agentd.conf
+│   └── scripts/
+│
+├── pod3-services-demo/
+│   ├── docker-compose.yml
+│   ├── config/
+│   │   ├── nginx.conf
+│   │   ├── default.conf
+│   │   ├── mysql.cnf
+│   │   └── redis.conf
+│   └── scripts/
+│
+├── pod4-observability-dora/
+│   ├── docker-compose.yml
+│   ├── config/
+│   │   ├── prometheus.yml
+│   │   ├── alertmanager.yml
+│   │   ├── prometheus_alerts.yml
+│   │   ├── otel/otel-collector-config.yml
+│   │   ├── grafana/provisioning/datasources/datasources.yml
+│   │   ├── grafana/dashboards/pod-services.json
+│   │   ├── elasticsearch/elasticsearch.yml
+│   │   └── kibana/kibana.yml
+│   └── scripts/
+│
+└── pod5-provisioning/
+    ├── docker-compose.yml
+    ├── config/
+    │   └── ansible.cfg
+    ├── terraform/
+    ├── ansible/
+    ├── inventory/hosts.ini
+    └── inspec/
+```
 
-### Linters
+### Principios GitOps
+
+1. **Todo como Código**: Todas las configs en repositorio
+2. **Volumes Mounted**: Configs montados como volúmenes para GitOps replication
+3. **Secrets via OpenBao**: No hardcoded passwords
+4. **Branching**: main (producción), dev (desarrollo)
+
+---
+
+## 11. Testing y Calidad
+
+### Cobertura
+
+- Mínimo **85%** coverage en scripts y configs
+- Tests unitarios en `tests/unit/`
+- Tests de integración en `tests/integration/`
+- Tests de seguridad en `tests/security/`
+
+### Herramientas
 
 | Herramienta | Propósito |
 |-------------|-----------|
-| **Ruff** | Python linter |
-| **yamllint** | YAML validation |
-| **shellcheck** | Shell script linting |
-| **ansible-lint** | Ansible validation |
-
-### OWASP Checklist
-
-- [x] Secret management con OpenBao
-- [x] Container security scanning (Trivy)
-- [x] Dependency vulnerability scanning
-- [x] Infrastructure as Code validation (Checkov)
-- [x] Network segmentation (3 redes)
-- [x] No hardcoded credentials
-- [x] GitHub Actions CI/CD con security scans
+| pytest | Testing framework |
+| ruff | Python linting |
+| yamllint | YAML validation |
+| shellcheck | Shell script validation |
+| ansible-lint | Ansible validation |
+| trivy | Vulnerability scanning |
+| bandit | Python security |
+| hadolint | Dockerfile lint |
 
 ---
 
-## 11. CI/CD - GitHub Actions
+## 12. CI/CD Pipeline
 
-### Pipeline CI (ci.yml)
+> **Nota**: Jenkins (POD1) es el CI/CD primario. GitHub Actions está en `.github-backup/workflows/` como backup.
 
-```yaml
-Jobs:
-  1. Linting          # Ruff, yamllint, shellcheck, ansible-lint
-  2. Security Scan    # Trivy, Bandit, Hadolint
-  3. Unit Tests       # pytest con coverage >85%
-  4. Integration      # Tests de servicios
-  5. Build Images     # Construcción de contenedores
-```
+### Jenkins (Primario)
 
-### Pipeline CD (cd.yml)
+Los pipelines de Jenkins están definidos en:
+- `pods/pod1-cicd-devsecops/config/jenkinsfile-ci` - Pipeline CI
+- `pods/pod1-cicd-devsecops/config/jenkinsfile-cd` - Pipeline CD
 
-```yaml
-Jobs:
-  1. Deploy VM        # Ansible provisioning
-  2. Deploy Services # podman compose
-  3. Deploy SonarQube # Análisis de código
-```
+Funciones:
+1. **Linting** - Ruff, yamllint, shellcheck, ansible-lint
+2. **Security** - Trivy, Bandit, Hadolint
+3. **Tests** - pytest con coverage >85%
+4. **Build** - podman compose build
+5. **Deploy** - podman compose up -d
+6. **Verify** - health-check.sh
 
----
+### GitHub Actions (Backup)
 
-## 12. Análisis de Código - SonarQube
+Ubicación: `.github-backup/workflows/`
 
-### Configuración
-
-```properties
-sonar.projectKey=zabbix-testing-environment
-sonar.projectName=Zabbix Testing Environment
-sonar.language=py,shell,yaml,dockerfile
-sonar.python.version=3.11
-sonar.coverage.jacoco.xmlReportsPath=coverage.xml
-```
-
-### Servicios
-
-| Servicio | Puerto | URL |
-|----------|--------|-----|
-| SonarQube | 9000 | http://localhost:9000 |
-| PostgreSQL | 5432 | localhost:5432 |
-
----
-
-## 13. Diagramas C4
-
-| Nivel | Archivo | Descripción |
-|-------|---------|-------------|
-| **C1** | `c1-context.drawio` | Contexto del sistema |
-| **C2** | `c2-container.drawio` | Contenedores y relaciones |
-| **C3** | `c3-component.drawio` | Componentes internos |
-| **C4** | `c4-code.drawio` | Estructura de código |
-
----
-
-## 14. AI Agent Skills
-
-### QA Skill (.github/actions/qa-skill.yml)
-
-```yaml
-Commands:
-  - run-unit-tests
-  - run-integration-tests
-  - run-security-tests
-  - run-all-tests
-  - check-coverage
-  - security-scan
-  - lint-code
-```
-
-### Deploy Skill (.github/actions/deploy-skill.yml)
-
-```yaml
-Commands:
-  - deploy-all
-  - deploy-services
-  - deploy-zabbix
-  - deploy-sonarqube
-  - start-services
-  - stop-services
-  - health-check
-  - init-secrets
+Para activar:
+```bash
+mv .github-backup/workflows .github/
+mv .github-backup/actions .github/
 ```
 
 ---
 
-## 15. Scripts
+## 13. Backup y Recuperación
 
-| Script | Propósito |
-|--------|-----------|
-| `scripts/create-utm-vm.sh` | Crear VM en UTM |
-| `scripts/cloud-init/user-data.yml` | Config cloud-init |
-| `scripts/init-secrets.sh` | Poblar OpenBao |
-| `scripts/health-check.sh` | Verificar servicios |
+### Estrategia Weekly
 
----
+- **Frecuencia**: Semanal (domingo 2 AM)
+- **Retención**: 4 semanas
+- **Incluye**:
+  - Volúmenes de datos
+  - Configuraciones de red
+  - Archivos de configuración
+  - Variables de entorno (encriptado recomendado)
 
-## 16. Flujo de Despliegue
+### Restauración
 
-```
-1. git clone
-   │
-   ▼
-2. tools/linters/setup-linters.sh
-   │  • Ruff
-   │  • yamllint
-   │  • shellcheck
-   ▼
-3. tools/security/setup-security-tools.sh
-   │  • Trivy
-   │  • Bandit
-   │  • Hadolint
-   ▼
-4. scripts/create-utm-vm.sh
-   │  • Crear VM en UTM
-   ▼
-5. ansible-playbook prepare-vm.yml
-   │  • Crear LVM (3 LV)
-   │  • Instalar paquetes
-   ▼
-6. ansible-playbook setup-podman.yml
-   │  • Instalar Podman
-   ▼
-7. podman compose up -d
-   │  • OpenBao
-   │  • PostgreSQL
-   │  • Nginx
-   │  • FastAPI
-   │  • Zabbix 6.0, 7.0, 7.4
-   ▼
-8. pytest tests/ --cov-fail-under=85
-   │  • Unit tests
-   │  • Integration tests
-   │  • Security tests
-   ▼
-9. trivy fs .
-   │  • Vulnerability scan
-   ▼
-10. ./scripts/init-secrets.sh
-    • Poblar OpenBao
+```bash
+# Restaurar volumen
+tar -xzf <backup-file> -C /var/lib/containers/storage/volumes/
+
+# Restaurar configuración
+tar -xzf pods_config_<date>.tar.gz -C <project-root>/
 ```
 
 ---
 
-## 17. Puertos de Acceso
+## 14. Métricas DORA
 
-| Servicio | Puerto | URL |
-|----------|--------|-----|
-| OpenBao | 8200 | http://localhost:8200 |
-| Zabbix 6.0 | 8080 | http://localhost:8080 |
-| Zabbix 7.0 | 8081 | http://localhost:8081 |
-| Zabbix 7.4 | 8082 | http://localhost:8082 |
-| Nginx | 80 | http://localhost:80 |
-| FastAPI | 8000 | http://localhost:8000 |
-| SonarQube | 9000 | http://localhost:9000 |
-| PostgreSQL | 5432 | localhost:5432 |
+El proyecto incluye configuración para metricas DORA en POD4:
+
+| Métrica | Herramienta |
+|---------|-------------|
+| **Deployment Frequency** | Prometheus + Grafana |
+| **Lead Time for Changes** | Prometheus + Grafana |
+| **Mean Time to Recovery** | Alertmanager + Grafana |
+| **Change Failure Rate** | Prometheus + Grafana |
 
 ---
 
-## 18. Estructura de Archivos
+## 15. Notas de Seguridad
 
-```
-.
-├── README.md
-├── SPEC.md
-├── pyproject.toml                 # pytest + coverage
-├── docker-compose.yml
-├── docker-compose.sonarqube.yml
-├── sonar-project.properties
-│
-├── scripts/
-│   ├── create-utm-vm.sh
-│   ├── cloud-init/
-│   ├── init-secrets.sh
-│   └── health-check.sh
-│
-├── ansible/
-│   ├── prepare-vm.yml
-│   ├── setup-podman.yml
-│   └── roles/
-│
-├── configs/
-│   ├── openbao/
-│   ├── nginx/
-│   └── fastapi/
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── security/
-│
-├── tools/
-│   ├── linters/
-│   └── security/
-│
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml
-│   │   └── cd.yml
-│   └── actions/
-│
-└── docs/
-    └── diagrams/
-        ├── c1-context.drawio
-        ├── c2-container.drawio
-        ├── c3-component.drawio
-        └── c4-code.drawio
-```
+### No Exponer
+
+- ❌ Secrets en código (usar OpenBao)
+- ❌ SSH keys en repositorio
+- ❌ Passwords hardcodeados
+- ❌ Tokens en logs
+
+### Sí Implementar
+
+- ✅ Network segmentation por POD
+- ✅ Secrets via OpenBao KV v2
+- ✅ Scan automático con Trivy
+- ✅ .gitignore actualizado
+- ✅ TLS en producción (no en dev)
+
+---
+
+## 16. Referencias
+
+- [Podman Docs](https://docs.podman.io/)
+- [OpenBao Docs](https://openbao.io/)
+- [Zabbix Docs](https://www.zabbix.com/documentation/)
+- [Prometheus Docs](https://prometheus.io/docs/)
+- [Grafana Docs](https://grafana.com/docs/)
+- [Terraform Docs](https://developer.hashicorp.com/terraform)
+- [Ansible Docs](https://docs.ansible.com/)

@@ -1,0 +1,166 @@
+services:
+  # =============================================================================
+  # POD5: Provisioning - Terraform + Ansible Tools
+  # =============================================================================
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure as Code - Terraform
+  # ---------------------------------------------------------------------------
+  pod5-terraform:
+    image: hashicorp/terraform:1.7-light
+    container_name: pod5-provisioning-terraform
+    hostname: pod5-terraform
+    working_dir: /workspace
+    volumes:
+      - pod5-terraform-data:/workspace
+      - ./pods/pod5-provisioning/terraform/:/workspace/terraform:ro
+      - ./pods/pod5-provisioning/config:/config:ro
+    environment:
+      TF_LOG: INFO
+      TF_CLI_CONFIG_FILE: /config/.terraformrc
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  # ---------------------------------------------------------------------------
+  # Configuration Management - Ansible
+  # ---------------------------------------------------------------------------
+  pod5-ansible:
+    image: ansible/ansible-runner:latest
+    container_name: pod5-provisioning-ansible
+    hostname: pod5-ansible
+    working_dir: /workspace
+    volumes:
+      - pod5-ansible-data:/workspace
+      - ./pods/pod5-provisioning/ansible/:/workspace/ansible:ro
+      - ./pods/pod5-provisioning/inventory/:/inventory:ro
+      - ./pods/pod5-provisioning/config:/config:ro
+    environment:
+      ANSIBLE_CONFIG: /config/ansible.cfg
+      ANSIBLE_HOST_KEY_CHECKING: "false"
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  # ---------------------------------------------------------------------------
+  # CI/CD for IaC - Ansible AWX (Lite - Ansible Navigator)
+  # ---------------------------------------------------------------------------
+  pod5-ansible-navigator:
+    image: ansible/ansible-navigator:latest
+    container_name: pod5-provisioning-ansible-navigator
+    hostname: pod5-ansible-navigator
+    working_dir: /workspace
+    volumes:
+      - pod5-ansible-data:/workspace
+      - ./pods/pod5-provisioning/ansible/:/workspace/ansible:ro
+      - ./pods/pod5-provisioning/inventory/:/inventory:ro
+    environment:
+      ANSIBLE_NAVIGATOR_CONFIG: /workspace/ansible-navigator.yml
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  # ---------------------------------------------------------------------------
+  # Cloud CLI Tools
+  # ---------------------------------------------------------------------------
+  pod5-aws-cli:
+    image: amazon/aws-cli:2.15:latest
+    container_name: pod5-provisioning-aws-cli
+    hostname: pod5-aws-cli
+    volumes:
+      - pod5-aws-config:/root/.aws
+      - ./pods/pod5-provisioning/config:/config:ro
+    environment:
+      AWS_CONFIG_FILE: /config/aws/config
+      AWS_SHARED_CREDENTIALS_FILE: /config/aws/credentials
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  pod5-azure-cli:
+    image: mcr.microsoft.com/azure-cli:latest
+    container_name: pod5-provisioning-azure-cli
+    hostname: pod5-azure-cli
+    volumes:
+      - pod5-azure-config:/root/.azure
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  pod5-gcloud-cli:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+    container_name: pod5-provisioning-gcloud-cli
+    hostname: pod5-gcloud-cli
+    volumes:
+      - pod5-gcloud-config:/root/.config/gcloud
+    entrypoint: tail
+    command: "-f /dev/null"
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure Testing
+  # ---------------------------------------------------------------------------
+  pod5-inspec:
+    image: chef/inspec:latest
+    container_name: pod5-provisioning-inspec
+    hostname: pod5-inspec
+    volumes:
+      - pod5-inspec-data:/workspace
+      - ./pods/pod5-provisioning/inspec/:/workspace/inspec:ro
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  pod5-checkov:
+    image: bridgecrew/checkov:latest
+    container_name: pod5-provisioning-checkov
+    hostname: pod5-checkov
+    volumes:
+      - pod5-checkov-data:/workspace
+      - ./pods/pod5-provisioning/terraform/:/workspace/terraform:ro
+    environment:
+      CHECKOV_OUTPUT_FORMAT: json
+      CHECKOV_OUTPUT_FILE: /workspace/results.json
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  # ---------------------------------------------------------------------------
+  # Documentation & State Management
+  # ---------------------------------------------------------------------------
+  pod5-docs:
+    image: hashicorp/terraform-docs:latest
+    container_name: pod5-provisioning-terraform-docs
+    hostname: pod5-terraform-docs
+    volumes:
+      - pod5-terraform-data:/workspace
+      - ./pods/pod5-provisioning/terraform/:/workspace/terraform:ro
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - pod5-provisioning-internal
+    restart: unless-stopped
+
+networks:
+  pod5-provisioning-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.50.0/24
+
+volumes:
+  pod5-terraform-data:
+  pod5-ansible-data:
+  pod5-aws-config:
+  pod5-azure-config:
+  pod5-gcloud-config:
+  pod5-inspec-data:
+  pod5-checkov-data:

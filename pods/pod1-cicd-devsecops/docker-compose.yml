@@ -1,0 +1,153 @@
+services:
+  # =============================================================================
+  # POD1: CI/CD + DevSecOps - OpenBao (Secrets Management)
+  # =============================================================================
+  pod1-openbao:
+    image: quay.io/openbao/openbao:latest
+    container_name: pod1-cicd-openbao
+    hostname: pod1-openbao
+    ports:
+      - "8200:8200"
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: ${BAO_DEV_ROOT_TOKEN_ID}
+      BAO_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      BAO_ADDR: "http://0.0.0.0:8200"
+    volumes:
+      - pod1-openbao-data:/openbao/data
+      - pod1-openbao-logs:/openbao/logs
+      - ./pods/pod1-cicd-devsecops/config/openbao.hcl:/openbao/config/config.hcl:ro
+    networks:
+      - pod1-cicd-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8200/v1/sys/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # POD1: CI/CD + DevSecOps - Jenkins (CI/CD Orchestration)
+  # =============================================================================
+  pod1-jenkins:
+    image: jenkins/jenkins:lts
+    container_name: pod1-cicd-jenkins
+    hostname: pod1-jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - pod1-jenkins-home:/var/jenkins_home
+      - /var/run/podman.sock:/var/run/podman.sock
+      - ./pods/pod1-cicd-devsecops/config/jenkins_init.groovy:/var/jenkins_init.groovy:ro
+      - ./pods/pod1-cicd-devsecops/config/jenkinsfile-ci:/var/jenkinsfile-ci:ro
+      - ./pods/pod1-cicd-devsecops/config/jenkinsfile-cd:/var/jenkinsfile-cd:ro
+    environment:
+      JENKINS_OPTS: "--prefix=/jenkins"
+      PODMAN_SOCKET: /var/run/podman.sock
+      BAO_ADDR: http://pod1-openbao:8200
+      BAO_TOKEN: ${BAO_DEV_ROOT_TOKEN_ID}
+    networks:
+      - pod1-cicd-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      pod1-openbao:
+        condition: service_healthy
+
+  # =============================================================================
+  # POD1: CI/CD + DevSecOps - SonarQube (Code Analysis)
+  # =============================================================================
+  pod1-sonarqube-db:
+    image: postgres:15
+    container_name: pod1-cicd-sonarqube-db
+    hostname: pod1-sonarqube-db
+    environment:
+      POSTGRES_DB: sonarqube
+      POSTGRES_USER: ${SONARQUBE_DB_USER:-sonarqube}
+      POSTGRES_PASSWORD: ${SONARQUBE_DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pod1-sonarqube-db-data:/var/lib/postgresql/data
+    networks:
+      - pod1-cicd-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SONARQUBE_DB_USER:-sonarqube}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  pod1-sonarqube:
+    image: sonarqube:10.4-community
+    container_name: pod1-cicd-sonarqube
+    hostname: pod1-sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://pod1-sonarqube-db:5432/sonarqube
+      SONAR_JDBC_USERNAME: ${SONARQUBE_DB_USER:-sonarqube}
+      SONAR_JDBC_PASSWORD: ${SONARQUBE_DB_PASSWORD}
+      SONAR_WEB_CONTEXT: /
+    volumes:
+      - pod1-sonarqube-data:/opt/sonarqube/data
+      - pod1-sonarqube-logs:/opt/sonarqube/logs
+      - pod1-sonarqube-conf:/opt/sonarqube/conf
+      - pod1-sonarqube-extensions:/opt/sonarqube/extensions
+      - ./pods/pod1-cicd-devsecops/config/sonar-project.properties:/opt/sonarqube/conf/sonar-project.properties:ro
+    networks:
+      - pod1-cicd-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      pod1-sonarqube-db:
+        condition: service_healthy
+
+  # =============================================================================
+  # POD1: CI/CD + DevSecOps - Trivy Scanner (Security)
+  # =============================================================================
+  pod1-trivy:
+    image: aquasec/trivy:latest
+    container_name: pod1-cicd-trivy
+    hostname: pod1-trivy
+    volumes:
+      - pod1-trivy-cache:/root/.cache/trivy
+      - ./pods/pod1-cicd-devsecops/config/.trivy.yml:/root/.trivy.yml:ro
+      - ./:/workspace:ro
+    environment:
+      TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+    networks:
+      - pod1-cicd-internal
+    restart: unless-stopped
+    command: ["trivy", "server", "--listen", "0.0.0.0:4954"]
+    healthcheck:
+      test: ["CMD", "trivy", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 1
+
+networks:
+  pod1-cicd-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.10.0/24
+
+volumes:
+  pod1-openbao-data:
+  pod1-openbao-logs:
+  pod1-jenkins-home:
+  pod1-sonarqube-data:
+  pod1-sonarqube-logs:
+  pod1-sonarqube-conf:
+  pod1-sonarqube-extensions:
+  pod1-sonarqube-db-data:
+  pod1-trivy-cache:

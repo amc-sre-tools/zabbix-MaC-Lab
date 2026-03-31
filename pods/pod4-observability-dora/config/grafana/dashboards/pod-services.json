@@ -1,0 +1,22 @@
+{
+  "dashboard": {
+    "title": "POD Services Overview",
+    "tags": ["pod", "overview"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Service Health",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+        "targets": [
+          {
+            "expr": "up",
+            "legendFormat": "{{job}}"
+          }
+        ]
+      }
+    ],
+    "refresh": "30s",
+    "time": {"from": "now-6h", "to": "now"}
+  }
+}

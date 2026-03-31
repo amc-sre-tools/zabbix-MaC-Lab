@@ -1,0 +1,74 @@
+# =============================================================================
+# Skill: Testing and Quality Assurance
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Provides testing and QA capabilities for this project
+# =============================================================================
+
+name: Zabbix Testing QA
+description: Provides commands for running tests, security scans, and quality checks
+
+commands:
+  run-unit-tests:
+    description: Run unit tests with coverage
+    command: |
+      pytest tests/unit/ \
+        --cov=scripts \
+        --cov=configs \
+        --cov-report=term-missing \
+        --cov-report=html \
+        --cov-report=xml \
+        --cov-fail-under=85 \
+        -v
+
+  run-integration-tests:
+    description: Run integration tests
+    command: |
+      pytest tests/integration/ \
+        -m integration \
+        -v \
+        --tb=short
+
+  run-security-tests:
+    description: Run security tests
+    command: |
+      pytest tests/security/ \
+        -m security \
+        -v \
+        --tb=short
+
+  run-all-tests:
+    description: Run all tests with coverage
+    command: |
+      pytest tests/ \
+        --cov=scripts \
+        --cov=configs \
+        --cov-report=term-missing \
+        --cov-fail-under=85 \
+        -v
+
+  check-coverage:
+    description: Check test coverage
+    command: |
+      pytest tests/ \
+        --cov=scripts \
+        --cov=configs \
+        --cov-report=term-missing \
+        --cov-report=xml \
+        -v
+
+  security-scan:
+    description: Run security scanning tools
+    command: |
+      trivy fs --security-checks vuln,config .
+      bandit -r configs/fastapi
+      hadolint configs/fastapi/Dockerfile
+
+  lint-code:
+    description: Run all linters
+    command: |
+      ruff check .
+      yamllint .
+      shellcheck scripts/*.sh
+      ansible-lint ansible/*.yml

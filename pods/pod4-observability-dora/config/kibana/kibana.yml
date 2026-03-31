@@ -1,0 +1,15 @@
+server.port: 5601
+server.host: "0.0.0.0"
+
+elasticsearch.hosts: ["http://pod4-elasticsearch:9200"]
+
+csp.strict: false
+
+logging.verbose: false
+
+ops.cGroupOverrides.cpuPath: /sys/fs/cgroup/cpu,cpuacct
+ops.cGroupOverrides.cpuAcctPath: /sys/fs/cgroup/cpu,cpuacct
+
+newsfeed.enabled: false
+
+telemetry.optIn: false

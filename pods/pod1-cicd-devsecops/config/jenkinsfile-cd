@@ -1,0 +1,92 @@
+pipeline {
+    agent any
+    
+    environment {
+        BAO_ADDR = "${env.BAO_ADDR}"
+        BAO_TOKEN = credentials('openbao-token')
+        PODMAN_SOCKET = "/var/run/podman.sock"
+    }
+    
+    parameters {
+        choice(name: 'POD', choices: ['pod1-cicd-devsecops', 'pod2-monitoring-zabbix', 'pod3-services-demo', 'pod4-observability-dora', 'pod5-provisioning'], description: 'Select POD to deploy')
+        choice(name: 'ACTION', choices: ['up', 'down', 'restart', 'pull'], description: 'Deployment action')
+        booleanParam(name: 'BACKUP', defaultValue: true, description: 'Create backup before deploy')
+    }
+    
+    stages {
+        stage('Approval') {
+            when {
+                expression { params.ACTION == 'up' || params.ACTION == 'restart' }
+            }
+            steps {
+                timeout(time: 30, unit: 'MINUTES') {
+                    input message: "Deploy ${params.POD}? (${params.ACTION})", ok: 'Deploy'
+                }
+            }
+        }
+        
+        stage('Backup') {
+            when {
+                expression { params.BACKUP && (params.ACTION == 'up' || params.ACTION == 'restart') }
+            }
+            steps {
+                echo "Creating backup of current state..."
+                sh """
+                    podman volume ls --format '{{.Name}}' | grep ${params.POD} | xargs -I {} \
+                    podman volume inspect {} --format '{{.Name}}' > volumes-${params.POD}-${BUILD_NUMBER}.txt
+                """
+                archiveArtifacts artifacts: 'volumes-*.txt', allowEmptyArchive: true
+            }
+        }
+        
+        stage('Load Secrets') {
+            steps {
+                echo "Loading secrets from OpenBao..."
+                script {
+                    def pgSecrets = sh(
+                        script: """
+                            curl -s -H "X-Vault-Token: ${BAO_TOKEN}" \
+                            ${BAO_ADDR}/v1/secret/data/postgresql/admin || true
+                        """,
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                echo "Deploying ${params.POD} - ${params.ACTION}"
+                sh """
+                    cd pods/${params.POD}
+                    podman compose ${params.ACTION} -d
+                """
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                echo "Verifying deployment..."
+                sh """
+                    sleep 30
+                    podman ps --format '{{.Names}}\\t{{.Status}}' | grep ${params.POD}
+                """
+            }
+        }
+        
+        stage('Notify') {
+            steps {
+                echo "Deployment completed"
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "Deployment successful: ${params.POD} - ${params.ACTION}"
+        }
+        failure {
+            echo "Deployment failed: ${params.POD} - ${params.ACTION}"
+        }
+    }
+}

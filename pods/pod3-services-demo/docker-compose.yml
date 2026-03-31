@@ -1,0 +1,176 @@
+services:
+  # =============================================================================
+  # POD3: Services Demo - Mixed Services (OS, Databases, Middleware, API)
+  # =============================================================================
+
+  # ---------------------------------------------------------------------------
+  # Databases
+  # ---------------------------------------------------------------------------
+  pod3-mysql:
+    image: mysql:8.0
+    container_name: pod3-services-mysql
+    hostname: pod3-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: appdb
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - pod3-mysql-data:/var/lib/mysql
+      - ./pods/pod3-services-demo/config/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  pod3-redis:
+    image: redis:7-alpine
+    container_name: pod3-services-redis
+    hostname: pod3-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - pod3-redis-data:/data
+      - ./pods/pod3-services-demo/config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  pod3-mariadb:
+    image: mariadb:11
+    container_name: pod3-services-mariadb
+    hostname: pod3-mariadb
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: legacydb
+    volumes:
+      - pod3-mariadb-data:/var/lib/mysql
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Middleware
+  # ---------------------------------------------------------------------------
+  pod3-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: pod3-services-rabbitmq
+    hostname: pod3-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - pod3-rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  pod3-nginx:
+    image: nginx:alpine
+    container_name: pod3-services-nginx
+    hostname: pod3-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - pod3-nginx-data:/usr/share/nginx/html
+      - ./pods/pod3-services-demo/config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./pods/pod3-services-demo/config/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # API / Application
+  # ---------------------------------------------------------------------------
+  pod3-fastapi:
+    image: python:3.11-slim
+    container_name: pod3-services-fastapi
+    hostname: pod3-fastapi
+    ports:
+      - "8000:8000"
+    working_dir: /app
+    command: >
+      sh -c "pip install fastapi uvicorn pydantic python-dotenv &&
+             python -c 'from fastapi import FastAPI; app = FastAPI(); @app.get(\"/\"); def root(): return {\"status\": \"ok\", \"service\": \"pod3-fastapi\"}; import uvicorn; uvicorn.run(app, host=\"0.0.0.0\", port=8000)'"
+    environment:
+      APP_ENV: testing
+      LOG_LEVEL: info
+    volumes:
+      - pod3-fastapi-data:/app
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Monitoring Agent (metrics exporter)
+  # ---------------------------------------------------------------------------
+  pod3-node-exporter:
+    image: prom/node-exporter:latest
+    container_name: pod3-services-node-exporter
+    hostname: pod3-node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)(/|$)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9100/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  pod3-services-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.30.0/24
+
+volumes:
+  pod3-mysql-data:
+  pod3-redis-data:
+  pod3-mariadb-data:
+  pod3-rabbitmq-data:
+  pod3-nginx-data:
+  pod3-fastapi-data:
