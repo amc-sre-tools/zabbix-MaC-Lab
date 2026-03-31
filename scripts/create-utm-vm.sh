@@ -21,7 +21,9 @@ RAM_MB=8192
 CPU_CORES=4
 
 SSH_USER="sre-ubuntu"
-SSH_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO7S09tP3e9XvH+w4MzIgahc6aUt9SFjOppddh1/MZzc korc.dev@gmail.com"
+# SSH key - Set via environment variable or pass as argument
+# Example: SSH_KEY="ssh-ed25519 AAAA..." ./create-utm-vm.sh
+# Or use: export SSH_KEY="$(cat ~/.ssh/id_ed25519.pub)"
 
 echo "=== UTM VM Creation Script for Zabbix Testing ==="
 
