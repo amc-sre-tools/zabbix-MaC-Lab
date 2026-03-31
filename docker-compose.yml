@@ -1,0 +1,243 @@
+version: "3.8"
+
+services:
+  openbao:
+    image: quay.io/openbao/openbao:latest
+    container_name: openbao
+    ports:
+      - "8200:8200"
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: ${BAO_DEV_ROOT_TOKEN_ID}
+      BAO_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      BAO_ADDR: "http://0.0.0.0:8200"
+    volumes:
+      - openbao-data:/openbao/data
+      - openbao-logs:/openbao/logs
+    networks:
+      - bridge-secrets
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8200/v1/sys/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgresql:
+    image: postgres:15
+    container_name: postgresql
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-zabbix}
+      POSTGRES_USER: ${POSTGRES_USER:-zabbix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+    networks:
+      - bridge-servicios
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zabbix}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-logs:/var/log/nginx
+    networks:
+      - bridge-servicios
+    depends_on:
+      - zabbix-web-6.0
+      - zabbix-web-7.0
+      - zabbix-web-7.4
+      - fastapi
+    restart: unless-stopped
+
+  fastapi:
+    build:
+      context: ./configs/fastapi
+      dockerfile: Dockerfile
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      FASTAPI_SECRET_KEY: ${FASTAPI_SECRET_KEY}
+      FASTAPI_API_KEY: ${FASTAPI_API_KEY}
+    volumes:
+      - fastapi-logs:/app/logs
+    networks:
+      - bridge-servicios
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  zabbix-server-6.0:
+    image: zabbix/zabbix-server-mysql:alpine-6.0-latest
+    container_name: zabbix-6.0
+    ports:
+      - "10060:10060"
+    env_file:
+      - .env
+    environment:
+      DB_SERVER_HOST: postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_CACHESIZE: 512M
+      ZBX_HISTORYCACHESIZE: 128M
+      ZBX_TRENDCACHESIZE: 128M
+    networks:
+      - bridge-zabbix
+      - bridge-servicios
+    restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  zabbix-web-6.0:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-6.0-latest
+    container_name: zabbix-web-6.0
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DB_SERVER_HOST: postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_SERVER_NAME: Zabbix-6.0
+      PHP_TZ: America/New_York
+    networks:
+      - bridge-zabbix
+      - bridge-servicios
+    restart: unless-stopped
+    depends_on:
+      - zabbix-server-6.0
+
+  zabbix-server-7.0:
+    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
+    container_name: zabbix-7.0
+    ports:
+      - "10070:10060"
+    env_file:
+      - .env
+    environment:
+      DB_SERVER_HOST: postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_CACHESIZE: 512M
+      ZBX_HISTORYCACHESIZE: 128M
+      ZBX_TRENDCACHESIZE: 128M
+    networks:
+      - bridge-zabbix
+      - bridge-servicios
+    restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  zabbix-web-7.0:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    container_name: zabbix-web-7.0
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env
+    environment:
+      DB_SERVER_HOST: postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_SERVER_NAME: Zabbix-7.0
+      PHP_TZ: America/New_York
+    networks:
+      - bridge-zabbix
+      - bridge-servicios
+    restart: unless-stopped
+    depends_on:
+      - zabbix-server-7.0
+
+  zabbix-server-7.4:
+    image: zabbix/zabbix-server-mysql:alpine-7.4-latest
+    container_name: zabbix-7.4
+    ports:
+      - "10074:10060"
+    env_file:
+      - .env
+    environment:
+      DB_SERVER_HOST: postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_CACHESIZE: 512M
+      ZBX_HISTORYCACHESIZE: 128M
+      ZBX_TRENDCACHESIZE: 128M
+    networks:
+      - bridge-zabbix
+      - bridge-servicios
+    restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  zabbix-web-7.4:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.4-latest
+    container_name: zabbix-web-7.4
+    ports:
+      - "8082:8080"
+    env_file:
+      - .env
+    environment:
+      DB_SERVER_HOST: postgresql
+      MYSQL_DATABASE: ${POSTGRES_DB:-zabbix}
+      MYSQL_USER: ${POSTGRES_USER:-zabbix}
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ZBX_SERVER_NAME: Zabbix-7.4
+      PHP_TZ: America/New_York
+    networks:
+      - bridge-zabbix
+      - bridge-servicios
+    restart: unless-stopped
+    depends_on:
+      - zabbix-server-7.4
+
+networks:
+  bridge-zabbix:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.88.10.0/24
+  bridge-servicios:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.88.20.0/24
+  bridge-secrets:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.88.30.0/24
+
+volumes:
+  openbao-data:
+  openbao-logs:
+  postgresql-data:
+  nginx-logs:
+  fastapi-logs:

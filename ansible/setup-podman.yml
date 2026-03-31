@@ -1,0 +1,18 @@
+---
+# =============================================================================
+# Ansible Playbook: Install Podman
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Installs Podman and configures networks for the environment
+# Usage: ansible-playbook -i inventory.ini setup-podman.yml
+# =============================================================================
+
+- name: Instalar Podman
+  hosts: zabbix-testing
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: podman
+      tags: ['podman']

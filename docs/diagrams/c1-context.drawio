@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagram name="C1 - Context Diagram" graphModel="Cell" inkscape:version="1.1.2" sodipodi:version="1.1.2" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:di="http://purl.org/dc elements/1.1/" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" version="9.0.0" style="background-color: #ffffff;">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="C1-1" value="Zabbix Testing Environment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="60" width="220" x="320" y="200" />
+    </mxCell>
+    <mxCell id="C1-2" value="SRE Engineer&#xa;(Andrés M. Correa)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="40" width="30" x="140" y="210" />
+    </mxCell>
+    <mxCell id="C1-3" value="UTM Virtualization&#xa;(macOS Host)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="40" width="30" x="520" y="210" />
+    </mxCell>
+    <mxCell id="C1-4" value="GitHub&#xa;Repository" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="100" x="320" y="80" />
+    </mxCell>
+    <mxCell id="C1-5" value="" edge="1" parent="1" source="C1-2" target="C1-1" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C1-6" value="" edge="1" parent="1" source="C1-1" target="C1-3" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C1-7" value="" edge="1" parent="1" source="C1-4" target="C1-1" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0">
+      <mxGeometry as="geometry" />
+    </mxCell>
+  </root>
+</diagram>

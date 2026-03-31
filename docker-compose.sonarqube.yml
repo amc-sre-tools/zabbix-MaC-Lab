@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  sonarqube:
+    image: sonarqube:10.4-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonarqube
+      SONAR_JDBC_PASSWORD: sonarqube_password
+      SONAR_WEB_CONTEXT: /
+      SONAR_SECURITY_REALM: SAMBA
+      SONAR_AUTHENTICATION_REALM: SAMBA
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-logs:/opt/sonarqube/logs
+      - sonarqube-conf:/opt/sonarqube/conf
+      - sonarqube-extensions:/opt/sonarqube/extensions
+    networks:
+      - sonarnetwork
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+
+  sonarqube-db:
+    image: postgres:15
+    container_name: sonarqube-db
+    environment:
+      POSTGRES_DB: sonarqube
+      POSTGRES_USER: sonarqube
+      POSTGRES_PASSWORD: sonarqube_password
+      PGDATA: /var/lib/postgresql/data/sonarqube
+    volumes:
+      - sonarqube-db-data:/var/lib/postgresql/data
+    networks:
+      - sonarnetwork
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonarqube"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 512m
+    cpu_shares: 768
+
+networks:
+  sonarnetwork:
+    driver: bridge
+
+volumes:
+  sonarqube-data:
+  sonarqube-logs:
+  sonarqube-conf:
+  sonarqube-extensions:
+  sonarqube-db-data:

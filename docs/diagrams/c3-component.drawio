@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagram name="C3 - Component Diagram" graphModel="Cell" xmlns="http://www.w3.org/2000/svg" version="9.0.0" style="background-color: #ffffff;">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    
+    <!-- VM Ubuntu -->
+    <mxCell id="C3-1" value="Ubuntu Server 24.04 LTS VM&#xa;(UTM - 8GB RAM, 4 vCPU)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="100" width="300" x="150" y="40" />
+    </mxCell>
+    
+    <!-- Capa de Virtualización -->
+    <mxCell id="C3-2" value="Virtualization Layer&#xa;(Podman Engine)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="60" width="180" x="50" y="180" />
+    </mxCell>
+    
+    <!-- Redes -->
+    <mxCell id="C3-3" value="Networks&#xa;(bridge-zabbix, bridge-servicios, bridge-secrets)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="60" width="250" x="260" y="180" />
+    </mxCell>
+    
+    <!-- Componentes: Servicios Core -->
+    <mxCell id="C3-4" value="Core Services" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="80" width="150" x="50" y="280" />
+    </mxCell>
+    <mxCell id="C3-5" value="PostgreSQL :5432" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="60" y="370" />
+    </mxCell>
+    <mxCell id="C3-6" value="OpenBao :8200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="60" y="410" />
+    </mxCell>
+    
+    <!-- Zabbix -->
+    <mxCell id="C3-7" value="Zabbix Servers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="80" width="150" x="220" y="280" />
+    </mxCell>
+    <mxCell id="C3-8" value="Zabbix 6.0 :8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="230" y="370" />
+    </mxCell>
+    <mxCell id="C3-9" value="Zabbix 7.0 :8081" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="230" y="410" />
+    </mxCell>
+    <mxCell id="C3-10" value="Zabbix 7.4 :8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="230" y="450" />
+    </mxCell>
+    
+    <!-- API y Proxy -->
+    <mxCell id="C3-11" value="API &amp; Proxy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="80" width="150" x="390" y="280" />
+    </mxCell>
+    <mxCell id="C3-12" value="FastAPI :8000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="400" y="370" />
+    </mxCell>
+    <mxCell id="C3-13" value="Nginx :80" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="30" width="100" x="400" y="410" />
+    </mxCell>
+    
+    <!-- Almacenamiento -->
+    <mxCell id="C3-14" value="Storage (LVM)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="90" width="150" x="550" y="280" />
+    </mxCell>
+    <mxCell id="C3-15" value="/data (15GB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="25" width="130" x="560" y="375" />
+    </mxCell>
+    <mxCell id="C3-16" value="/var/lib/containers (20GB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="25" width="130" x="560" y="405" />
+    </mxCell>
+    <mxCell id="C3-17" value="/var/log (10GB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="25" width="130" x="560" y="435" />
+    </mxCell>
+    
+    <!-- Conexiones -->
+    <mxCell id="C3-18" value="" edge="1" parent="1" source="C3-1" target="C3-2" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C3-19" value="" edge="1" parent="1" source="C3-1" target="C3-3" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C3-20" value="" edge="1" parent="1" source="C3-2" target="C3-4" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C3-21" value="" edge="1" parent="1" source="C3-2" target="C3-7" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C3-22" value="" edge="1" parent="1" source="C3-2" target="C3-11" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C3-23" value="" edge="1" parent="1" source="C3-2" target="C3-14" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+  </root>
+</diagram>

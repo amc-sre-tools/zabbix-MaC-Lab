@@ -1,0 +1,90 @@
+---
+# =============================================================================
+# Ansible Role: LVM Configuration
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Configures LVM with logical volumes for data and logs
+# Usage: Called via prepare-vm.yml playbook
+# =============================================================================
+
+- name: Instalar LVM3
+  ansible.builtin.apt:
+    name:
+      - lvm2
+      - lvm2-bin
+    state: present
+    update_cache: yes
+
+- name: Detectar disco adicional
+  ansible.builtin.shell: |
+    lsblk -n -o NAME,TYPE | grep disk | grep -v "$(lsblk -n -o NAME | head -1)"
+  register: additional_disk
+  changed_when: false
+  failed_when: false
+
+- name: Obtener dispositivo del disco adicional
+  ansible.builtin.set_fact:
+    additional_disk_device: "/dev/{{ additional_disk.stdout.split()[0] }}"
+  when: additional_disk.stdout | length > 0
+
+- name: Usar disco del sistema si no hay adicional
+  ansible.builtin.set_fact:
+    additional_disk_device: "/dev/sda"
+  when: additional_disk.stdout | length == 0
+
+- name: Crear Physical Volume
+  community.lvm.lvm_pv:
+    pv: "{{ additional_disk_device }}"
+    state: present
+  when: additional_disk_device is defined
+
+- name: Crear Volume Group
+  community.lvm.lvm_vg:
+    vg: vg_data
+    pv: "{{ additional_disk_device }}"
+    state: present
+  when: additional_disk_device is defined
+
+- name: Crear Logical Volumes
+  community.lvm.lvm_lv:
+    vg: vg_data
+    lv: "{{ item.lv }}"
+    size: "{{ item.size }}"
+    state: present
+  loop:
+    - { lv: 'lv_data', size: '15g' }
+    - { lv: 'lv_containers', size: '20g' }
+    - { lv: 'lv_logs', size: '10g' }
+  when: additional_disk_device is defined
+
+- name: Formatear LV
+  ansible.builtin.filesystem:
+    fstype: ext4
+    dev: "/dev/vg_data/{{ item.lv }}"
+  loop:
+    - { lv: 'lv_data' }
+    - { lv: 'lv_containers' }
+    - { lv: 'lv_logs' }
+  when: additional_disk_device is defined
+
+- name: Montar LV /data
+  ansible.builtin.mount:
+    path: /data
+    src: /dev/vg_data/lv_data
+    fstype: ext4
+    state: mounted
+
+- name: Montar LV /var/lib/containers
+  ansible.builtin.mount:
+    path: /var/lib/containers
+    src: /dev/vg_data/lv_containers
+    fstype: ext4
+    state: mounted
+
+- name: Montar LV /var/log
+  ansible.builtin.mount:
+    path: /var/log
+    src: /dev/vg_data/lv_logs
+    fstype: ext4
+    state: mounted

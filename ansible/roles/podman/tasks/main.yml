@@ -1,0 +1,90 @@
+---
+# =============================================================================
+# Ansible Role: Podman Installation and Configuration
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Installs Podman and configures networks for containers
+# Usage: Called via setup-podman.yml playbook
+# =============================================================================
+
+- name: Instalar dependencias para repositorio
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - apt-transport-https
+      - ca-certificates
+      - software-properties-common
+    state: present
+    update_cache: yes
+
+- name: Añadir repositorio Podman
+  ansible.builtin.apt_repository:
+    repo: "deb [trusted=yes] https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_24.04/ /"
+    state: present
+
+- name: Instalar Podman
+  ansible.builtin.apt:
+    name:
+      - podman
+      - podman-plugins
+      - buildah
+      - skopeo
+    state: present
+    update_cache: yes
+
+- name: Verificar instalación de Podman
+  ansible.builtin.command: podman --version
+  register: podman_version
+  changed_when: false
+
+- name: Mostrar versión de Podman
+  ansible.builtin.debug:
+    msg: "Podman versión: {{ podman_version.stdout }}"
+
+- name: Configurar storage.conf para Podman rootless
+  ansible.builtin.template:
+    src: storage.conf.j2
+    dest: /etc/containers/storage.conf
+    mode: '0644'
+  become_user: root
+
+- name: Crear directorio para contenedores
+  ansible.builtin.file:
+    path: /var/lib/containers
+    state: directory
+    mode: '0755'
+
+- name: Configurar límite de contenedores para usuario rootless
+  ansible.builtin.shell: |
+    usermod --add-subuids 100000-165535 sre-ubuntu
+    usermod --add-subgids 100000-165535 sre-ubuntu
+  failed_when: false
+
+- name: Habilitar linger para usuario sre-ubuntu
+  ansible.builtin.systemd:
+    name: linger
+    state: started
+  failed_when: false
+
+- name: Crear redes Podman
+  community.general.podman_network:
+    name: bridge-zabbix
+    subnet: 10.88.10.0/24
+    state: present
+  failed_when: false
+
+- name: Crear red bridge-servicios
+  community.general.podman_network:
+    name: bridge-servicios
+    subnet: 10.88.20.0/24
+    state: present
+  failed_when: false
+
+- name: Crear red bridge-secrets
+  community.general.podman_network:
+    name: bridge-secrets
+    subnet: 10.88.30.0/24
+    state: present
+  failed_when: false

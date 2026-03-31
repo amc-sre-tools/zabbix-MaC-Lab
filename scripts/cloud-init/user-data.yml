@@ -1,0 +1,39 @@
+#cloud-config
+# =============================================================================
+# Cloud-Init Configuration for Zabbix Testing VM
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Initial configuration for Ubuntu 24.04 VM
+# =============================================================================
+
+hostname: zabbix-testing
+manage_etc_hosts: true
+
+users:
+  - name: sre-ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    # SSH key - Configure via cloud-init metadata or inject at deployment time
+    # Example using metadata service:
+    # ssh-keys:
+    #   - |
+    #     ssh-rsa AAAA... user@hostname
+    # Or reference external key URL:
+    # ssh-authorized-keys:
+    #   - http://metadata.google/computeMetadata/v1/instance/service-accounts/default/public-keys
+    shell: /bin/bash
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - qemu-guest-agent
+  - cloud-init
+  - net-tools
+  - curl
+  - wget
+  - git
+  - lvm2
+
+runcmd:
+  - systemctl enable qemu-guest-agent

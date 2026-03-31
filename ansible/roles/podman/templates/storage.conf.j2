@@ -1,0 +1,28 @@
+[storage]
+driver = "overlay"
+runroot = "/var/run/containers/storage"
+graphroot = "/var/lib/containers/storage"
+
+[storage.options]
+additionalimagestores = []
+
+[storage.options.overlay]
+mount_program = "/usr/bin/fuse-overlayfs"
+mountopt = "nodev,metacopy=on"
+
+[storage.options.thinpool]
+autoextend_percent = "20"
+autoextend_threshold = "80"
+basesize = "10G"
+blocksize = "64k"
+directlvm_device = ""
+directlvm_device_force = "false"
+fs = "xfs"
+log_level = "7"
+min_free_space = "10%"
+min_free_space_select = "random"
+mkfsarg = ""
+mountarg = ""
+use_deferred_deletion = "false"
+use_deferred_removal = "false"
+xfs_nospace_max_retries = "0"

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagram name="C2 - Container Diagram" graphModel="Cell" xmlns="http://www.w3.org/2000/svg" version="9.0.0" style="background-color: #ffffff;">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    
+    <!-- Sistema: Zabbix Testing Environment -->
+    <mxCell id="C2-1" value="Zabbix Testing Environment&#xa;(Podman Compose)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="80" width="240" x="280" y="160" />
+    </mxCell>
+    
+    <!-- Contenedores -->
+    <mxCell id="C2-2" value="OpenBao&#xa;:8200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="100" y="280" />
+    </mxCell>
+    <mxCell id="C2-3" value="PostgreSQL&#xa;:5432" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="200" y="280" />
+    </mxCell>
+    <mxCell id="C2-4" value="Zabbix 6.0&#xa;:8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="300" y="280" />
+    </mxCell>
+    <mxCell id="C2-5" value="Zabbix 7.0&#xa;:8081" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="400" y="280" />
+    </mxCell>
+    <mxCell id="C2-6" value="Zabbix 7.4&#xa;:8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="500" y="280" />
+    </mxCell>
+    <mxCell id="C2-7" value="Nginx&#xa;:80, 443" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="600" y="280" />
+    </mxCell>
+    <mxCell id="C2-8" value="FastAPI&#xa;:8000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="50" width="80" x="700" y="280" />
+    </mxCell>
+    
+    <!-- Redes -->
+    <mxCell id="C2-9" value="bridge-secrets" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#666666;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" width="90" x="95" y="350" />
+    </mxCell>
+    <mxCell id="C2-10" value="bridge-servicios" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#666666;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" width="90" x="545" y="350" />
+    </mxCell>
+    <mxCell id="C2-11" value="bridge-zabbix" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#666666;fontSize=10" vertex="1" parent="1">
+      <mxGeometry as="geometry" width="90" x="295" y="350" />
+    </mxCell>
+    
+    <!-- Conexiones -->
+    <mxCell id="C2-12" value="" edge="1" parent="1" source="C2-2" target="C2-3" style="endArrow=classic;html=1;dashed=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C2-13" value="" edge="1" parent="1" source="C2-3" target="C2-4" style="endArrow=classic;html=1;dashed=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C2-14" value="" edge="1" parent="1" source="C2-3" target="C2-5" style="endArrow=classic;html=1;dashed=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C2-15" value="" edge="1" parent="1" source="C2-3" target="C2-6" style="endArrow=classic;html=1;dashed=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C2-16" value="" edge="1" parent="1" source="C2-7" target="C2-4" style="endArrow=classic;html=1;dashed=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    <mxCell id="C2-17" value="" edge="1" parent="1" source="C2-7" target="C2-8" style="endArrow=classic;html=1;dashed=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    
+    <!-- Externo: GitHub -->
+    <mxCell id="C2-18" value="GitHub Actions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="40" width="100" x="280" y="60" />
+    </mxCell>
+    <mxCell id="C2-19" value="" edge="1" parent="1" source="C2-18" target="C2-1" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+    
+    <!-- Usuario -->
+    <mxCell id="C2-20" value="SRE&#xa;Engineer" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+      <mxGeometry as="geometry" height="40" width="30" x="60" y="160" />
+    </mxCell>
+    <mxCell id="C2-21" value="" edge="1" parent="1" source="C2-20" target="C2-1" style="endArrow=classic;html=1">
+      <mxGeometry as="geometry" />
+    </mxCell>
+  </root>
+</diagram>

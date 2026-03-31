@@ -1,0 +1,18 @@
+---
+# =============================================================================
+# Ansible Playbook: Prepare VM for Zabbix Testing
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Prepares the VM by configuring LVM and installing base packages
+# Usage: ansible-playbook -i inventory.ini prepare-vm.yml
+# =============================================================================
+
+- name: Preparar VM para Zabbix Testing
+  hosts: zabbix-testing
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: lvm
+      tags: ['lvm']
