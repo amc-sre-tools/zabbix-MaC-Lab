@@ -2,24 +2,26 @@
 # =============================================================================
 # Zabbix Backup Script for POD2
 # =============================================================================
-# Backup all Zabbix databases and configurations
+# Backup all Zabbix databases (per version) and configurations
 
 BACKUP_DIR="/data/backups/zabbix"
 DATE=$(date +%Y%m%d_%H%M%S)
+POSTGRES_USER="${POSTGRES_USER:-zabbix}"
 
 mkdir -p "$BACKUP_DIR"
 
 echo "=== Zabbix POD2 Backup ==="
 
-# PostgreSQL backup
-echo "Backing up PostgreSQL..."
-podman exec pod2-monitoring-postgresql pg_dump -U zabbix zabbix > "$BACKUP_DIR/zabbix_db_$DATE.sql"
+DATABASES=("zabbix60" "zabbix70" "zabbix74")
 
-# Compress
-gzip "$BACKUP_DIR/zabbix_db_$DATE.sql"
+for DB in "${DATABASES[@]}"; do
+    echo "Backing up $DB..."
+    podman exec pod2-monitoring-postgresql pg_dump -U "$POSTGRES_USER" "$DB" > "$BACKUP_DIR/${DB}_$DATE.sql"
+    gzip "$BACKUP_DIR/${DB}_$DATE.sql"
+    echo "Backup completed: ${DB}_$DATE.sql.gz"
+done
 
-# Keep only last 7 days
-find "$BACKUP_DIR" -name "zabbix_db_*.sql.gz" -mtime +7 -delete
+find "$BACKUP_DIR" -name "*.sql.gz" -mtime +7 -delete
 
-echo "Backup completed: zabbix_db_$DATE.sql.gz"
+echo "=== Backup Summary ==="
 ls -lh "$BACKUP_DIR"

@@ -49,10 +49,12 @@ Este proyecto configura un ambiente de pruebas integral para Zabbix con arquitec
 ┌─────────────────────────────────────────────────────────────────────┐
 │ POD2: Monitoring Zabbix        │ Network: 10.99.20.0/24         │
 ├─────────────────────────────────────┴──────────────────────────────┤
-│ • PostgreSQL            :5432    │ • Zabbix 6.0 Server :10060     │
-│ • Zabbix 6.0 Web        :8080    │ • Zabbix 7.0 Server :10070     │
-│ • Zabbix 7.0 Web        :8081    │ • Zabbix 7.4 Server :10074     │
-│ • Zabbix 7.4 Web        :8082    │ • Zabbix Agent    :10050     │
+│ • PostgreSQL (3 BDs)        :5432  │ • Zabbix 6.0 Server :10060    │
+│   - zabbix60 / zabbix70 / zabbix74 │ • Zabbix 7.0 Server :10070    │
+│ • Zabbix 6.0 Web        :8080    │ • Zabbix 7.4 Server :10074    │
+│ • Zabbix 7.0 Web        :8081    │ • Zabbix Agent    :10050      │
+│ • Zabbix 7.4 Web        :8082    │                                │
+│ • TZ: America/Bogota                                                │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -251,14 +253,19 @@ Red: 10.99.10.0/24
 
 ```
 Services:
-├── pod2-postgresql           database
+├── pod2-postgresql           database (3 BDs: zabbix60, zabbix70, zabbix74)
 ├── pod2-zabbix-server-6.0    Zabbix 6.0 LTS
-├── pod2-zabbix-web-6.0       Zabbix 6.0 Web
+├── pod2-zabbix-web-6.0       Zabbix 6.0 Web (config: zabbix60.conf.php)
 ├── pod2-zabbix-server-7.0    Zabbix 7.0
-├── pod2-zabbix-web-7.0       Zabbix 7.0 Web
+├── pod2-zabbix-web-7.0       Zabbix 7.0 Web (config: zabbix70.conf.php)
 ├── pod2-zabbix-server-7.4    Zabbix 7.4 LTS
-├── pod2-zabbix-web-7.4       Zabbix 7.4 Web
+├── pod2-zabbix-web-7.4       Zabbix 7.4 Web (config: zabbix74.conf.php)
 └── pod2-zabbix-agent         Zabbix Agent
+
+Bases de datos separadas por versión:
+├── zabbix60 → Zabbix 6.0
+├── zabbix70 → Zabbix 7.0
+└── zabbix74 → Zabbix 7.4
 
 Puertos: 5432, 8080-8082, 10060-10074
 Red: 10.99.20.0/24

@@ -128,16 +128,24 @@
 
 ### POD2: Monitoring Zabbix
 
-| Componente | Tipo | Versión | Red | Puertos |
-|------------|------|---------|-----|---------|
-| PostgreSQL | Contenedor | 15 | pod2-monitoring-internal | 5432 |
-| Zabbix Server 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 10060 |
-| Zabbix Web 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 8080 |
-| Zabbix Server 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 10070 |
-| Zabbix Web 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 8081 |
-| Zabbix Server 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 10074 |
-| Zabbix Web 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 8082 |
-| Zabbix Agent | Contenedor | latest | pod2-monitoring-internal | 10050 |
+| Componente | Tipo | Versión | Red | Puertos | Base de Datos |
+|------------|------|---------|-----|---------|---------------|
+| PostgreSQL | Contenedor | 15 | pod2-monitoring-internal | 5432 | 3 BDs: zabbix60, zabbix70, zabbix74 |
+| Zabbix Server 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 10060 | zabbix60 |
+| Zabbix Web 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 8080 | zabbix60 |
+| Zabbix Server 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 10070 | zabbix70 |
+| Zabbix Web 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 8081 | zabbix70 |
+| Zabbix Server 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 10074 | zabbix74 |
+| Zabbix Web 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 8082 | zabbix74 |
+| Zabbix Agent | Contenedor | latest | pod2-monitoring-internal | 10050 | N/A |
+
+**Configuraciones independientes por versión:**
+- `config/zabbix60.conf.php` - Zabbix 6.0 Web
+- `config/zabbix70.conf.php` - Zabbix 7.0 Web
+- `config/zabbix74.conf.php` - Zabbix 7.4 Web
+- `scripts/init-databases.sh` - Crea las 3 bases de datos
+
+**Timezone:** America/Bogota en todos los servicios
 
 ### POD3: Services Demo
 
@@ -192,6 +200,13 @@
 | `secret/data/grafana` | `admin_password` |
 | `secret/data/elasticsearch` | `password` |
 
+> **Nota Importante - POD2**: PostgreSQL usa 3 bases de datos independientes para permitir pruebas de migración entre versiones de Zabbix:
+> - `zabbix60` → Zabbix 6.0 LTS
+> - `zabbix70` → Zabbix 7.0
+> - `zabbix74` → Zabbix 7.4 LTS
+> 
+> El script `scripts/init-databases.sh` crea estas bases de datos automáticamente.
+
 ---
 
 ## 9. Scripts Globales
@@ -229,10 +244,15 @@ pods/
 │   │   ├── zabbix-6.0.env
 │   │   ├── zabbix-7.0.env
 │   │   ├── zabbix-7.4.env
-│   │   ├── zabbix.conf.php
+│   │   ├── zabbix60.conf.php     # Config Zabbix 6.0 Web
+│   │   ├── zabbix70.conf.php     # Config Zabbix 7.0 Web
+│   │   ├── zabbix74.conf.php     # Config Zabbix 7.4 Web
+│   │   ├── zabbix.conf.php       # (legacy - no usado)
 │   │   ├── postgresql.conf
-│   │   └── zabbix_agentd.conf
+│   │   ├── zabbix_agentd.conf
+│   │   └── init-databases.sh     # Crea BDs zabbix60, zabbix70, zabbix74
 │   └── scripts/
+│       └── backup-zabbix.sh     # Backup por versión
 │
 ├── pod3-services-demo/
 │   ├── docker-compose.yml
