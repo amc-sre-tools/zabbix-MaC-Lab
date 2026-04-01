@@ -363,6 +363,31 @@ Verifica estado de todos los PODs y servicios.
 
 ## Credenciales
 
+> **⚠️ IMPORTANTE**: Las credenciales por defecto se proporcionan solo para instalación inicial. **Deben cambiarse inmediatamente** después del primer inicio para mantener la seguridad del sistema.
+
+### Credenciales por Defecto
+
+| Servicio | URL | Usuario | Contraseña | Acción Requerida |
+|----------|-----|---------|------------|------------------|
+| **OpenBao** | http://localhost:8200 | (root token) | `root-token-dev-only` | ✅ Cambiar en producción |
+| **Jenkins** | http://localhost:8080/jenkins | admin | (ver en contenedor) | ✅ Cambiar inmediatamente |
+| **SonarQube** | http://localhost:9000 | admin | `admin` | ⚠️ CAMBIAR immediately |
+| **Zabbix 6.0** | http://localhost:8083 | Admin | `zabbix` | ⚠️ CAMBIAR inmediatamente |
+| **Zabbix 7.0** | http://localhost:8081 | Admin | `zabbix` | ⚠️ CAMBIAR inmediatamente |
+| **Zabbix 7.4** | http://localhost:8082 | Admin | `zabbix` | ⚠️ CAMBIAR inmediatamente |
+| **PostgreSQL** | localhost:5432 | zabbix | (ver en .env) | ✅ Cambiar en producción |
+
+### Cambiar Contraseñas
+
+```bash
+# Después de iniciar los contenedores, ejecutar:
+./scripts/init-all-passwords.sh
+
+# O cambiar manualmente desde la UI:
+# - Zabbix: Users → Admin → Password
+# - SonarQube: My Account → Security → Change Password
+```
+
 ### Configurar OpenBao
 
 ```bash
@@ -373,14 +398,29 @@ Verifica estado de todos los PODs y servicios.
 ./scripts/load-secrets.sh
 ```
 
-### Secret Paths
+### Secret Paths en OpenBao
 
-| Path | Keys |
-|------|------|
-| `secret/data/postgresql/admin` | postgres_password, zabbix_password |
-| `secret/data/zabbix/credentials` | db_user, db_password |
-| `secret/data/fastapi/app` | secret_key, api_key |
-| `secret/data/jenkins/credentials` | admin_password, jenkins_token |
+| Path | Keys | Descripción |
+|------|------|-------------|
+| `secret/data/pod1/openbao` | root_token | Token root de OpenBao |
+| `secret/data/pod1/jenkins` | username, password | Credenciales Jenkins |
+| `secret/data/pod1/sonarqube` | username, password | Credenciales SonarQube |
+| `secret/data/pod2/postgresql` | postgres_password, zabbix_password | Credenciales PostgreSQL |
+| `secret/data/pod2/zabbix60` | username, password | Credenciales Zabbix 6.0 |
+| `secret/data/pod2/zabbix70` | username, password | Credenciales Zabbix 7.0 |
+| `secret/data/pod2/zabbix74` | username, password | Credenciales Zabbix 7.4 |
+
+### Recuperar Passwords de OpenBao
+
+```bash
+# Ver password de Zabbix 6.0
+curl -s -H "X-Vault-Token: root-token-dev-only" \
+  http://localhost:8200/v1/secret/data/pod2/zabbix60 | jq -r '.data.data.password'
+
+# Ver password de SonarQube
+curl -s -H "X-Vault-Token: root-token-dev-only" \
+  http://localhost:8200/v1/secret/data/pod1/sonarqube | jq -r '.data.data.password'
+```
 
 ---
 

@@ -388,12 +388,60 @@ El proyecto incluye configuración para metricas DORA en POD4:
 
 ## 15. Notas de Seguridad
 
+> **⚠️ IMPORTANTE**: Las credenciales por defecto se proporcionan solo para instalación inicial. **Deben cambiarse inmediatamente** después del primer inicio para mantener la seguridad del sistema.
+
+### Credenciales por Defecto (CAMBIAR INMEDIATAMENTE)
+
+| Servicio | Usuario | Contraseña | URL |
+|----------|---------|------------|-----|
+| **Zabbix 6.0** | Admin | `zabbix` | http://localhost:8083 |
+| **Zabbix 7.0** | Admin | `zabbix` | http://localhost:8081 |
+| **Zabbix 7.4** | Admin | `zabbix` | http://localhost:8082 |
+| **SonarQube** | admin | `admin` | http://localhost:9000 |
+| **OpenBao** | (root token) | `root-token-dev-only` | http://localhost:8200 |
+| **Jenkins** | admin | (ver en contenedor) | http://localhost:8080/jenkins |
+| **PostgreSQL** | zabbix | (ver en .env) | localhost:5432 |
+
+### Scripts de Inicialización de Passwords
+
+```bash
+# Después de iniciar los contenedores:
+./scripts/init-all-passwords.sh
+
+# Este script:
+# 1. Genera passwords seguros
+# 2. Los almacena en OpenBao
+# 3. Intenta actualizar via API
+# 4. Indica acción requerida para cambios manuales
+```
+
+### Recuperar Passwords de OpenBao
+
+```bash
+# Zabbix 6.0
+curl -s -H "X-Vault-Token: root-token-dev-only" \
+  http://localhost:8200/v1/secret/data/pod2/zabbix60 | jq
+
+# Zabbix 7.0
+curl -s -H "X-Vault-Token: root-token-dev-only" \
+  http://localhost:8200/v1/secret/data/pod2/zabbix70 | jq
+
+# Zabbix 7.4
+curl -s -H "X-Vault-Token: root-token-dev-only" \
+  http://localhost:8200/v1/secret/data/pod2/zabbix74 | jq
+
+# SonarQube
+curl -s -H "X-Vault-Token: root-token-dev-only" \
+  http://localhost:8200/v1/secret/data/pod1/sonarqube | jq
+```
+
 ### No Exponer
 
 - ❌ Secrets en código (usar OpenBao)
 - ❌ SSH keys en repositorio
 - ❌ Passwords hardcodeados
 - ❌ Tokens en logs
+- ❌ Credenciales por defecto en producción
 
 ### Sí Implementar
 
@@ -401,6 +449,7 @@ El proyecto incluye configuración para metricas DORA en POD4:
 - ✅ Secrets via OpenBao KV v2
 - ✅ Scan automático con Trivy
 - ✅ .gitignore actualizado
+- ✅ Cambiar passwords por defecto inmediatamente
 - ✅ TLS en producción (no en dev)
 
 ---
