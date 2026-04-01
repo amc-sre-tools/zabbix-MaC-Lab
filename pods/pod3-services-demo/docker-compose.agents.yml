@@ -1,0 +1,25 @@
+services:
+  # =============================================================================
+  # Zabbix Agent for POD3 - Services Demo
+  # =============================================================================
+  pod3-zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-latest
+    container_name: pod3-zabbix-agent
+    hostname: pod3-zabbix-agent
+    privileged: true
+    ports:
+      - "10052:10050"
+    environment:
+      ZBX_HOSTNAME: pod3-services
+      ZBX_SERVER_HOST: pod2-zabbix-6.0-server,pod2-zabbix-7.0-server,pod2-zabbix-7.4-server
+      TZ: America/Bogota
+    volumes:
+      - /Users/amcorrea/Documents/personal-git/zabbix-MaC-Lab/pods/pod2-monitoring-zabbix/config/zabbix_agentd_pod3.conf:/etc/zabbix/zabbix_agentd.conf:ro
+    networks:
+      - pod3-services-internal
+    restart: unless-stopped
+
+networks:
+  pod3-services-internal:
+    name: pod3-services-demo_pod3-services-internal
+    external: true

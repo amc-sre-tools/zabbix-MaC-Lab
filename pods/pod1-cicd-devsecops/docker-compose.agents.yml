@@ -1,0 +1,25 @@
+services:
+  # =============================================================================
+  # Zabbix Agent for POD1 - CI/CD Services
+  # =============================================================================
+  pod1-zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-latest
+    container_name: pod1-zabbix-agent
+    hostname: pod1-zabbix-agent
+    privileged: true
+    ports:
+      - "10051:10050"
+    environment:
+      ZBX_HOSTNAME: pod1-cicd-services
+      ZBX_SERVER_HOST: pod2-zabbix-6.0-server,pod2-zabbix-7.0-server,pod2-zabbix-7.4-server
+      TZ: America/Bogota
+    volumes:
+      - /Users/amcorrea/Documents/personal-git/zabbix-MaC-Lab/pods/pod2-monitoring-zabbix/config/zabbix_agentd_pod1.conf:/etc/zabbix/zabbix_agentd.conf:ro
+    networks:
+      - pod1-cicd-internal
+    restart: unless-stopped
+
+networks:
+  pod1-cicd-internal:
+    name: pod1-cicd-devsecops_pod1-cicd-internal
+    external: true

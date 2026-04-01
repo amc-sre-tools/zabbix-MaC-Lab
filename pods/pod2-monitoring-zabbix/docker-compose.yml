@@ -235,15 +235,72 @@ services:
     ports:
       - "10050:10050"
     environment:
-      ZBX_HOSTNAME: zabbix-agent-host
-      ZBX_SERVER_HOST: 127.0.0.1
+      ZBX_HOSTNAME: pod2-zabbix-host
+      ZBX_SERVER_HOST: pod2-zabbix-6.0-server,pod2-zabbix-7.0-server,pod2-zabbix-7.4-server
       TZ: America/Bogota
     volumes:
       - pod2-zabbix-agent-data:/var/lib/zabbix
+      - pod2-zabbix-agent-run:/var/run/zabbix
       - ./config/zabbix_agentd.conf:/etc/zabbix/zabbix_agentd.conf:ro
     networks:
       - pod2-monitoring-internal
     restart: unless-stopped
+
+  # =============================================================================
+  # POD2: Monitoring - Zabbix Agent for POD1 (CI/CD Services)
+  # =============================================================================
+  pod1-zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-latest
+    container_name: pod1-zabbix-agent
+    hostname: pod1-zabbix-agent
+    ports:
+      - "10051:10050"
+    environment:
+      ZBX_HOSTNAME: pod1-cicd-services
+      ZBX_SERVER_HOST: pod2-zabbix-6.0-server,pod2-zabbix-7.0-server,pod2-zabbix-7.4-server
+      TZ: America/Bogota
+    volumes:
+      - pod1-zabbix-agent-data:/var/lib/zabbix
+      - ./config/zabbix_agentd_pod1.conf:/etc/zabbix/zabbix_agentd.conf:ro
+    networks:
+      - pod1-cicd-internal
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      pod2-zabbix-6.0-server:
+        condition: service_started
+      pod2-zabbix-7.0-server:
+        condition: service_started
+      pod2-zabbix-7.4-server:
+        condition: service_started
+
+  # =============================================================================
+  # POD2: Monitoring - Zabbix Agent for POD3 (Services Demo)
+  # =============================================================================
+  pod3-zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-latest
+    container_name: pod3-zabbix-agent
+    hostname: pod3-zabbix-agent
+    ports:
+      - "10052:10050"
+    environment:
+      ZBX_HOSTNAME: pod3-services
+      ZBX_SERVER_HOST: pod2-zabbix-6.0-server,pod2-zabbix-7.0-server,pod2-zabbix-7.4-server
+      TZ: America/Bogota
+    volumes:
+      - pod3-zabbix-agent-data:/var/lib/zabbix
+      - ./config/zabbix_agentd_pod3.conf:/etc/zabbix/zabbix_agentd.conf:ro
+    networks:
+      - pod3-services-internal
+      - pod2-monitoring-internal
+    restart: unless-stopped
+    depends_on:
+      pod2-zabbix-6.0-server:
+        condition: service_started
+      pod2-zabbix-7.0-server:
+        condition: service_started
+      pod2-zabbix-7.4-server:
+        condition: service_started
 
 networks:
   pod2-monitoring-internal:
@@ -258,3 +315,5 @@ volumes:
   pod2-zabbix7-data:
   pod2-zabbix74-data:
   pod2-zabbix-agent-data:
+  pod1-zabbix-agent-data:
+  pod3-zabbix-agent-data:

@@ -21,6 +21,8 @@
 | **Code Analysis** | SonarQube |
 | **Observabilidad** | Prometheus + Grafana + Elasticsearch + OTel |
 | **IaC** | Terraform + Ansible |
+| **Monitoreo** | Zabbix 6.0 LTS, 7.0, 7.4 LTS |
+| **Timezone** | America/Bogota (todos los contenedores) |
 
 ---
 
@@ -30,35 +32,81 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    ZABBIX TESTING ENVIRONMENT                       │
 │                     5 PODs with Podman                             │
+│                     Timezone: America/Bogota                       │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ POD1: CI/CD + DevSecOps         (10.99.10.0/24)            │   │
-│  │ OpenBao :8200  |  Jenkins :8080  |  SonarQube :9000         │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ POD2: Monitoring Zabbix       (10.99.20.0/24)              │   │
-│  │ PostgreSQL :5432  |  Zabbix 6.0/7.0/7.4  |  Agent :10050   │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ POD3: Services Demo         (10.99.30.0/24)                 │   │
-│  │ MySQL :3306  |  Redis :6379  |  RabbitMQ :5672  | Nginx :80  │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ POD4: Observability DORA      (10.99.40.0/24)              │   │
-│  │ Prometheus :9090  |  Grafana :3000  |  ES :9200  | OTel     │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ POD5: Provisioning          (10.99.50.0/24)                 │   │
-│  │ Terraform  |  Ansible  |  AWS/Azure/GCP CLI  |  InSpec      │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD1: CI/CD + DevSecOps         (10.99.10.0/24)                    │
+├─────────────────────────────────────────────────────────────────────┤
+│ OpenBao :8200  |  Jenkins :8080  |  SonarQube :9000 | Trivy:4954 │
+│ Zabbix Agent:10051                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD2: Monitoring Zabbix       (10.99.20.0/24)                    │
+├─────────────────────────────────────────────────────────────────────┤
+│ PostgreSQL :5432 (zabbix60, zabbix70, zabbix74)                    │
+│ Zabbix 6.0 Server:10060 / Web:8083                                  │
+│ Zabbix 7.0 Server:10070 / Web:8081                                  │
+│ Zabbix 7.4 Server:10074 / Web:8082                                  │
+│ Zabbix Agent:10050                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD3: Services Demo         (10.99.30.0/24)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│ MySQL :3306 | Redis :6379 | RabbitMQ :5672/15672 | Nginx :80/443  │
+│ FastAPI :8000 | Node Exporter :9100 | Zabbix Agent:10052          │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD4: Observability DORA      (10.99.40.0/24)                      │
+├─────────────────────────────────────────────────────────────────────┤
+│ Prometheus :9090 | Grafana :3000 | Elasticsearch :9200 | OTel       │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD5: Provisioning          (10.99.50.0/24)                         │
+├─────────────────────────────────────────────────────────────────────┤
+│ Terraform | Ansible | AWS/Azure/GCP CLI | InSpec | Checkov        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 2.1 Zabbix Agents Architecture
+
+```
+                    ┌─────────────────────────────────────┐
+                    │    Zabbix Servers (POD2)            │
+                    │  ┌─────────┬─────────┬─────────┐    │
+                    │  │ Zabbix  │ Zabbix  │ Zabbix  │    │
+                    │  │   6.0   │   7.0   │   7.4   │    │
+                    │  │ :10060  │ :10070  │ :10074  │    │
+                    │  └─────────┴─────────┴─────────┘    │
+                    └──────────────┬──────────────────────┘
+                                   │
+         ┌─────────────────────────┼─────────────────────────┐
+         │                         │                         │
+    ┌────┴────┐              ┌────┴────┐              ┌────┴────┐
+    │  POD1   │              │  POD2   │              │  POD3   │
+    │ Agent   │              │ Agent   │              │ Agent   │
+    │:10051   │              │:10050   │              │:10052   │
+    └────┬────┘              └────┬────┘              └────┬────┘
+         │                         │                         │
+    Monitorea:                 Monitorea:                Monitorea:
+    - OpenBao                   - PostgreSQL              - MySQL
+    - Jenkins                   - Zabbix servers          - Redis
+    - SonarQube                 - Zabbix webs             - RabbitMQ
+    - Trivy                                             - Nginx
+                                                        - FastAPI
+```
+
+| Agent | Container | Puerto | Redes | Hosts Monitoreados |
+|-------|-----------|--------|-------|-------------------|
+| pod1-zabbix-agent | zabbix/zabbix-agent | 10051 | pod1-cicd-internal, pod2-monitoring | OpenBao, Jenkins, SonarQube, Trivy |
+| pod2-zabbix-agent | zabbix/zabbix-agent | 10050 | pod2-monitoring | PostgreSQL, Zabbix servers |
+| pod3-zabbix-agent | zabbix/zabbix-agent | 10052 | pod3-services-internal, pod2-monitoring | MySQL, Redis, RabbitMQ, Nginx, FastAPI |
 
 ---
 
@@ -405,34 +453,29 @@ El proyecto incluye configuración para metricas DORA en POD4:
 ### Scripts de Inicialización de Passwords
 
 ```bash
-# Después de iniciar los contenedores:
-./scripts/init-all-passwords.sh
+# Script completo (recomendado) - inicializa todo
+./scripts/init-all.sh
 
 # Este script:
-# 1. Genera passwords seguros
-# 2. Los almacena en OpenBao
-# 3. Intenta actualizar via API
-# 4. Indica acción requerida para cambios manuales
+# 1. Genera passwords seguros (12+ caracteres, mayúsculas, números, especiales)
+# 2. Almacena todos los secrets en OpenBao
+# 3. Actualiza passwords de Zabbix vía API
+# 4. Inicia servicios
+# 5. Configura Zabbix Agents
+
+# Alternativo: solo rotación de passwords
+./scripts/init-all-passwords.sh
 ```
 
 ### Recuperar Passwords de OpenBao
 
 ```bash
-# Zabbix 6.0
-curl -s -H "X-Vault-Token: root-token-dev-only" \
-  http://localhost:8200/v1/secret/data/pod2/zabbix60 | jq
-
-# Zabbix 7.0
-curl -s -H "X-Vault-Token: root-token-dev-only" \
-  http://localhost:8200/v1/secret/data/pod2/zabbix70 | jq
-
-# Zabbix 7.4
-curl -s -H "X-Vault-Token: root-token-dev-only" \
-  http://localhost:8200/v1/secret/data/pod2/zabbix74 | jq
-
-# SonarQube
-curl -s -H "X-Vault-Token: root-token-dev-only" \
-  http://localhost:8200/v1/secret/data/pod1/sonarqube | jq
+# Ver todas las passwords
+for secret in pod2/zabbix60 pod2/zabbix70 pod2/zabbix74 pod1/sonarqube pod1/jenkins pod3/mysql pod3/redis pod3/rabbitmq; do
+  echo -n "$secret: "
+  curl -s -H "X-Vault-Token: root-token-dev-only" \
+    "http://localhost:8200/v1/secret/data/$secret" | jq -r '.data.data.password // .data.data.username'
+done
 ```
 
 ### No Exponer
