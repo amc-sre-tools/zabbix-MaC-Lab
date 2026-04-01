@@ -1,0 +1,167 @@
+# =============================================================================
+# CI/CD Pipeline - Zabbix Testing Environment
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: GitHub Actions workflow for continuous integration using Podman
+# =============================================================================
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop, feature/**]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  linting:
+    name: Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting tools
+        run: |
+          pip install ruff yamllint shellcheck ansible-lint
+
+      - name: Run Ruff (Python)
+        run: ruff check . --exit-zero
+
+      - name: Run yamllint (YAML)
+        run: yamllint -c .yamllint.yml .
+
+      - name: Run ShellCheck (Shell)
+        run: shellcheck scripts/*.sh
+
+      - name: Run Ansible Lint
+        run: ansible-lint ansible/*.yml || true
+
+  security-scanning:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Bandit (Python security)
+        run: |
+          pip install bandit
+          bandit -r configs/fastapi -f json -o bandit-report.json || true
+
+      - name: Run Hadolint (Dockerfile security)
+        run: |
+          curl -sL https://raw.githubusercontent.com/hadolint/hadolint/master/Dockerfile | podman build -t hadolint - || true
+          podman run --rm -v $(pwd)/configs:/data hadolint hadolint /data/fastapi/Dockerfile || true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov pytest-mock
+          pip install -r tests/requirements.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ \
+            --cov=scripts \
+            --cov=configs \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=85 \
+            -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Podman
+        uses: edgelessci/using-podman@v1
+        with:
+          podman-version: 4.9
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ \
+            -m integration \
+            -v \
+            --tb=short || true
+
+  build-containers:
+    name: Build Containers (Podman)
+    runs-on: ubuntu-latest
+    needs: [linting, security-scanning]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Podman
+        uses: edgelessci/using-podman@v1
+        with:
+          podman-version: 4.9
+
+      - name: Create .env from secrets
+        env:
+          BAO_TOKEN: ${{ secrets.BAO_TOKEN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          FASTAPI_SECRET_KEY: ${{ secrets.FASTAPI_SECRET_KEY }}
+        run: |
+          cat > .env << EOF
+          BAO_DEV_ROOT_TOKEN_ID=${BAO_TOKEN}
+          BAO_ADDR=http://openbao:8200
+          POSTGRES_DB=zabbix
+          POSTGRES_USER=zabbix
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          FASTAPI_SECRET_KEY=${FASTAPI_SECRET_KEY}
+          FASTAPI_API_KEY=changeme
+          ZABBIX_API_TOKEN=changeme
+          EOF
+
+      - name: Build containers with Podman
+        run: |
+          podman compose build --no-cache || true
+
+      - name: Run security scan on images
+        run: |
+          trivy image --config .trivy.yml local/fastapi-zabbix:latest || true

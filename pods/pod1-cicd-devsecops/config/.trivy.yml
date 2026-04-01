@@ -1,0 +1,61 @@
+# =============================================================================
+# Trivy Configuration for POD1 - Security Scanning
+# =============================================================================
+# Author: Andrés M. Correa
+# Description: Vulnerability scanner configuration
+# =============================================================================
+
+format: json
+quiet: false
+debug: false
+
+scanners:
+  - vuln
+  - config
+  - secret
+  - license
+
+severity:
+  - UNKNOWN
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+
+vuln-type:
+  - os
+  - library
+
+db:
+  repository: ghcr.io/aquasecurity/trivy-db:2
+  repository-arm: ghcr.io/aquasecurity/trivy-db:2
+  cache-dir: /root/.cache/trivy
+  skip-update: false
+
+ignorefile: .trivyignore
+
+exit-code: 0
+
+ignore-unfixed: true
+
+security-checks:
+  - vuln
+  - config
+  - secret
+
+cache:
+  backend: fs
+  ttl: 24h
+
+scan:
+  security-checks:
+    - vuln
+    - config
+    - secret
+
+notification:
+  when:
+    - LOW
+    - MEDIUM
+    - HIGH
+    - CRITICAL

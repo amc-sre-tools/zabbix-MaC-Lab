@@ -1,0 +1,78 @@
+# =============================================================================
+# Skill: Deployment Automation
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: Provides deployment and environment management commands
+# =============================================================================
+
+name: Deployment
+description: Provides commands for deploying and managing the environment
+
+commands:
+  deploy-all:
+    description: Deploy all services using Podman Compose
+    command: |
+      podman compose up -d
+      podman compose ps
+
+  deploy-services:
+    description: Deploy core services only
+    command: |
+      podman compose up -d postgresql openbao nginx fastapi
+
+  deploy-zabbix:
+    description: Deploy Zabbix servers
+    command: |
+      podman compose up -d zabbix-server-6.0 zabbix-web-6.0
+      podman compose up -d zabbix-server-7.0 zabbix-web-7.0
+      podman compose up -d zabbix-server-7.4 zabbix-web-7.4
+
+  deploy-sonarqube:
+    description: Deploy SonarQube for code analysis
+    command: |
+      podman compose -f docker-compose.sonarqube.yml up -d
+
+  start-services:
+    description: Start all services
+    command: |
+      podman compose start
+
+  stop-services:
+    description: Stop all services
+    command: |
+      podman compose stop
+
+  restart-services:
+    description: Restart all services
+    command: |
+      podman compose restart
+
+  remove-services:
+    description: Remove all services
+    command: |
+      podman compose down
+
+  view-logs:
+    description: View logs for all services
+    command: |
+      podman compose logs -f
+
+  view-logs-service:
+    description: View logs for a specific service
+    parameters:
+      - name: service
+        description: Service name
+        required: true
+    command: |
+      podman compose logs -f $SERVICE
+
+  health-check:
+    description: Check health of all services
+    command: |
+      ./scripts/health-check.sh
+
+  init-secrets:
+    description: Initialize secrets in OpenBao
+    command: |
+      ./scripts/init-secrets.sh

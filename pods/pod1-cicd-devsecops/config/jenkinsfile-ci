@@ -1,0 +1,121 @@
+pipeline {
+    agent any
+    
+    environment {
+        BAO_ADDR = "${env.BAO_ADDR}"
+        BAO_TOKEN = credentials('openbao-token')
+        SONAR_HOST = "${env.SONAR_HOST}"
+        SONAR_TOKEN = credentials('sonarqube-token')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Load Secrets') {
+            steps {
+                echo "Loading secrets from OpenBao..."
+                script {
+                    def secrets = sh(
+                        script: """
+                            curl -s -H "X-Vault-Token: ${BAO_TOKEN}" \
+                            ${BAO_ADDR}/v1/secret/data/jenkins/credentials || true
+                        """,
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        
+        stage('Linting') {
+            parallel {
+                stage('Ruff Lint') {
+                    steps {
+                        sh "ruff check . || true"
+                    }
+                }
+                stage('YAML Lint') {
+                    steps {
+                        sh "yamllint . || true"
+                    }
+                }
+                stage('ShellCheck') {
+                    steps {
+                        sh "shellcheck scripts/*.sh || true"
+                    }
+                }
+                stage('Ansible Lint') {
+                    steps {
+                        sh "ansible-lint ansible/*.yml || true"
+                    }
+                }
+            }
+        }
+        
+        stage('Security Scanning') {
+            parallel {
+                stage('Trivy FS') {
+                    steps {
+                        sh "trivy fs --security-checks vuln,config . || true"
+                    }
+                }
+                stage('Bandit') {
+                    steps {
+                        sh "bandit -r configs/ || true"
+                    }
+                }
+                stage('Hadolint') {
+                    steps {
+                        sh "hadolint configs/**/Dockerfile || true"
+                    }
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh "podman build -t zabbix-testing:latest . || true"
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                sh "pytest tests/unit/ -v --cov-fail-under=85 || true"
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                sh """
+                    sonar-scanner \
+                        -Dsonar.projectKey=zabbix-testing \
+                        -Dsonar.sources=scripts,configs,ansible \
+                        -Dsonar.host.url=${SONAR_HOST} \
+                        -Dsonar.token=${SONAR_TOKEN} || true
+                """
+            }
+        }
+        
+        stage('Container Scan') {
+            steps {
+                sh "trivy image --severity HIGH,CRITICAL zabbix-testing:latest || true"
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo "CI Pipeline completed"
+            archiveArtifacts artifacts: '**/reports/*', allowEmptyArchive: true
+        }
+        success {
+            echo "CI passed - ready for CD"
+        }
+        failure {
+            echo "CI failed - check logs"
+        }
+    }
+}

@@ -1,0 +1,99 @@
+# =============================================================================
+# CD Pipeline - Zabbix Testing Environment
+# =============================================================================
+# Author: Andrés M. Correa
+# Email: korc.dev@gmail.com
+# Description: GitHub Actions workflow for continuous deployment using Podman
+# =============================================================================
+
+name: CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to VM (Podman)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Set up Podman
+        uses: edgelessci/using-podman@v1
+        with:
+          podman-version: 4.9
+
+      - name: Install Ansible
+        run: |
+          pip install ansible ansible-modules-community
+
+      - name: Run provisioning
+        run: |
+          cd ansible
+          ansible-playbook -i inventory.ini prepare-vm.yml
+          ansible-playbook -i inventory.ini setup-podman.yml
+
+      - name: Initialize OpenBao secrets
+        run: |
+          ssh ${{ secrets.VM_HOST }} 'cd /path/to/project && ./scripts/init-secrets.sh'
+
+      - name: Load secrets from OpenBao
+        run: |
+          ssh ${{ secrets.VM_HOST }} 'cd /path/to/project && ./scripts/load-secrets.sh'
+
+      - name: Deploy containers with Podman
+        run: |
+          ssh ${{ secrets.VM_HOST }} 'cd /path/to/project && podman compose up -d'
+
+  deploy-sonarqube:
+    name: Deploy SonarQube
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Set up Podman
+        uses: edgelessci/using-podman@v1
+        with:
+          podman-version: 4.9
+
+      - name: Deploy SonarQube with Podman
+        run: |
+          ssh ${{ secrets.VM_HOST }} 'cd /path/to/project && podman compose -f docker-compose.sonarqube.yml up -d'
+
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    steps:
+      - name: Run health check script
+        run: |
+          ssh ${{ secrets.VM_HOST }} 'cd /path/to/project && ./scripts/health-check.sh'
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [deploy, deploy-sonarqube, health-check]
+    steps:
+      - name: Send success notification
+        if: success()
+        run: echo "Deployment successful"
+
+      - name: Send failure notification
+        if: failure()
+        run: echo "Deployment failed"

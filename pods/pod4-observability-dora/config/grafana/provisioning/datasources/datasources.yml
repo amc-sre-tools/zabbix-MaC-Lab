@@ -1,0 +1,18 @@
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://pod4-prometheus:9090
+    isDefault: true
+    editable: true
+
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://pod4-elasticsearch:9200
+    database: otel-traces-*
+    jsonData:
+      timeFieldName: "@timestamp"
+      esVersion: 8
+      logMessageField: message
+      logLevelField: fields.level

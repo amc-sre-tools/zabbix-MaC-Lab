@@ -1,145 +1,107 @@
 # Zabbix Testing Environment
 
-Ambiente de pruebas multi-versión de Zabbix con Podman Compose, OpenBao y servicios asociados.
+Ambiente de pruebas multi-POD con Podman Compose, OpenBao y servicios asociados para testing de migración Zabbix.
 
 ## Tabla de Contenidos
 
 1. [Descripción](#descripción)
-2. [Arquitectura](#arquitectura)
-3. [Arquitectura de Código](#arquitectura-de-código)
-4. [Requisitos](#requisitos)
-5. [Estructura del Proyecto](#estructura-del-proyecto)
-6. [Inicio Rápido](#inicio-rápido)
-7. [Testing y Calidad](#testing-y-calidad)
-8. [Seguridad DevSecOps](#seguridad-devsecops)
-9. [Análisis de Código](#análisis-de-código)
-10. [CI/CD](#cicd)
-11. [Servicios](#servicios)
-12. [Credenciales](#credenciales)
-13. [Diagramas C4](#diagramas-c4)
-14. [Mantenimiento](#mantenimiento)
-15. [Solución de Problemas](#solución-de-problemas)
-16. [Contribuir](#contribuir)
+2. [Arquitectura PODs](#arquitectura-pods)
+3. [Requisitos](#requisitos)
+4. [Estructura del Proyecto](#estructura-del-proyecto)
+5. [Inicio Rápido](#inicio-rápido)
+6. [PODs Detallados](#pods-detallados)
+7. [Scripts Globales](#scripts-globales)
+8. [Credenciales](#credenciales)
+9. [CI/CD con Podman](#cicd-con-podman)
+10. [Mantenimiento](#mantenimiento)
+11. [Solución de Problemas](#solución-de-problemas)
 
 ---
 
 ## Descripción
 
-Este proyecto configura un ambiente de pruebas local para Zabbix con las siguientes características:
+Este proyecto configura un ambiente de pruebas integral para Zabbix con arquitectura multi-POD:
 
-- **3 versiones de Zabbix**: 6.0, 7.0, 7.4 ejecutándose simultáneamente
+- **5 PODs especializados**: CI/CD, Monitoring, Services, Observability, Provisioning
 - **Gestión de secretos**: OpenBao (KV v2)
-- **API de simulación**: FastAPI con logs JSON estructurados
-- **Proxy reverso**: Nginx para acceso unificado
-- **Base de datos**: PostgreSQL 15
-- **Quality Assurance**: Testing TDD, cobertura >85%
-- **Seguridad**: OWASP compliance, scanning automático
-- **CI/CD**: GitHub Actions para integración y despliegue continuos
+- **Container Engine**: Podman 4.0+ (no Docker)
+- **Testing**: Zabbix 6.0, 7.0, 7.4 para migración
+- **Observabilidad**: Prometheus, Grafana, Elasticsearch, OTel
+- **IaC**: Terraform + Ansible
 
 ---
 
-## Arquitectura
+## Arquitectura PODs
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      MAC CON UTM 4.7.4                             │
-│                                                                     │
-│   ┌─────────────────────────────────────────────────────────────┐  │
-│   │         Ubuntu Server 24.04 LTS VM (4 vCPU, 8GB, 70GB)      │  │
-│   │                                                              │  │
-│   │  ┌────────────────────────────────────────────────────────┐ │  │
-│   │  │              Podman Compose Engine                     │ │  │
-│   │  │                                                         │ │  │
-│   │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │ │  │
-│   │  │  │  OpenBao    │  │ PostgreSQL  │  │    Nginx    │    │ │  │
-│   │  │  │   :8200     │  │   :5432     │  │  :80, :443  │    │ │  │
-│   │  │  └──────────────┘  └──────────────┘  └──────────────┘    │ │  │
-│   │  │                                                         │ │  │
-│   │  │  ┌──────────────────────────────────────────────────┐  │ │  │
-│   │  │  │              Zabbix Servers                       │  │ │  │
-│   │  │  │  • 6.0 (server:10060, web:8080)                  │  │ │  │
-│   │  │  │  • 7.0 (server:10070, web:8081)                  │  │ │  │
-│   │  │  │  • 7.4 (server:10074, web:8082)                  │  │ │  │
-│   │  │  └──────────────────────────────────────────────────┘  │ │  │
-│   │  │                                                         │ │  │
-│   │  │  ┌──────────────────────────────────────────────────┐  │ │  │
-│   │  │  │              FastAPI (simulación)                 │  │ │  │
-│   │  │  │  • :8000 • logs JSON cada 60s                     │  │ │  │
-│   │  │  └──────────────────────────────────────────────────┘  │ │  │
-│   │  │                                                         │ │  │
-│   │  │  ═══════════════════════════════════════════════════    │ │  │
-│   │  │              LVM Storage (70GB)                       │ │  │
-│   │  │  • /data (15GB)  • /var/lib/containers (20GB)          │ │  │
-│   │  │  • /var/log (10GB)                                    │ │  │
-│   │  └────────────────────────────────────────────────────────┘ │  │
-│   └─────────────────────────────────────────────────────────────┘  │
+│                    ZABBIX TESTING ENVIRONMENT                       │
+│                     5 PODs with Podman                             │
+├─────────────────────────────────────────────────────────────────────┤
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD1: CI/CD + DevSecOps          │ Network: 10.99.10.0/24         │
+├─────────────────────────────────────┴──────────────────────────────┤
+│ • OpenBao (secrets)      :8200   │ • Jenkins (CI/CD)    :8080     │
+│ • SonarQube (code)       :9000    │ • Trivy (scanner)   :4954     │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD2: Monitoring Zabbix        │ Network: 10.99.20.0/24         │
+├─────────────────────────────────────┴──────────────────────────────┤
+│ • PostgreSQL (3 BDs)        :5432  │ • Zabbix 6.0 Server :10060    │
+│   - zabbix60 / zabbix70 / zabbix74 │ • Zabbix 7.0 Server :10070    │
+│ • Zabbix 6.0 Web        :8083    │ • Zabbix 7.4 Server :10074    │
+│ • Zabbix 7.0 Web        :8081    │ • Zabbix Agent    :10050      │
+│ • Zabbix 7.4 Web        :8082    │                                │
+│ • TZ: America/Bogota                                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD3: Services Demo          │ Network: 10.99.30.0/24           │
+├─────────────────────────────────────┴──────────────────────────────┤
+│ • MySQL               :3306     │ • Redis          :6379          │
+│ • MariaDB             :3307    │ • RabbitMQ       :5672/15672     │
+│ • Nginx               :80/443  │ • FastAPI       :8000           │
+│ • Node Exporter       :9100    │                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD4: Observability DORA       │ Network: 10.99.40.0/24          │
+├─────────────────────────────────────┴──────────────────────────────┤
+│ • Prometheus          :9090    │ • Grafana       :3000           │
+│ • Alertmanager        :9093    │ • Elasticsearch :9200           │
+│ • Kibana              :5601    │ • OTel Collector:4317/4318       │
+│ • cAdvisor            :8080    │                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ POD5: Provisioning             │ Network: 10.99.50.0/24           │
+├─────────────────────────────────────┴──────────────────────────────┤
+│ • Terraform           (image)   │ • Ansible        (image)         │
+│ • AWS CLI             (image)   │ • Azure CLI      (image)         │
+│ • GCP CLI             (image)   │ • InSpec        (image)         │
+│ • Checkov             (image)   │                                │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Redes Podman
+### Resumen de Servicios
 
-| Red | Subred | Propósito |
-|-----|--------|-----------|
-| `bridge-zabbix` | 10.88.10.0/24 | Servidores Zabbix |
-| `bridge-servicios` | 10.88.20.0/24 | PostgreSQL, Nginx, FastAPI |
-| `bridge-secrets` | 10.88.30.0/24 | OpenBao |
+| POD | Servicios | Puertos Principales |
+|-----|-----------|---------------------|
+| POD1 | OpenBao, Jenkins, SonarQube, Trivy | 8200, 8080, 9000 |
+| POD2 | PostgreSQL, Zabbix 6.0/7.0/7.4 | 5432, 8080-8082, 10060-10074 |
+| POD3 | MySQL, Redis, RabbitMQ, Nginx, FastAPI | 3306, 6379, 5672, 80, 8000 |
+| POD4 | Prometheus, Grafana, Elasticsearch, OTel | 9090, 3000, 9200, 4317 |
+| POD5 | Terraform, Ansible, Cloud CLIs | N/A (tool containers) |
 
----
-
-## Arquitectura de Código
-
-El proyecto sigue una estructura de **Arquitectura Limpia (Clean Architecture)** con separación de responsabilidades:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CAPAS DE ARQUITECTURA                    │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  PRESENTATION (Capa de Presentación)                  │   │
-│  │  ├── README.md                                       │   │
-│  │  ├── docs/diagrams/                                  │   │
-│  │  └── .github/workflows/                             │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           ▲                                 │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  APPLICATION (Capa de Aplicación)                   │   │
-│  │  ├── scripts/                                        │   │
-│  │  ├── ansible/                                       │   │
-│  │  └── docker-compose.yml                            │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           ▲                                 │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  DOMAIN (Capa de Dominio)                           │   │
-│  │  ├── configs/fastapi/main.py                        │   │
-│  │  ├── configs/nginx/nginx.conf                      │   │
-│  │  └── configs/openbao/config.hcl                    │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           ▲                                 │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  INFRASTRUCTURE (Capa de Infraestructura)           │   │
-│  │  ├── tests/                                         │   │
-│  │  ├── tools/                                         │   │
-│  │  └── pyproject.toml                                │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Principios Aplicados
-
-- **Dependency Inversion**: Las capas superiores no dependen de las inferiores
-- **Single Responsibility**: Cada componente tiene una responsabilidad clara
-- **Separation of Concerns**: Scripts, configs y tests están separados
-- **DRY (Don't Repeat Yourself)**: Configuraciones centralizadas
+**Total: 37 servicios**
 
 ---
 
 ## Requisitos
 
-### Hardware VM (UTM)
+### Hardware (VM UTM)
 
 | Recurso | Valor |
 |---------|-------|
@@ -150,12 +112,12 @@ El proyecto sigue una estructura de **Arquitectura Limpia (Clean Architecture)**
 
 ### Software
 
-| Software | Versión Mínima |
-|----------|----------------|
-| UTM | 4.7.4 |
+| Software | Versión |
+|----------|---------|
 | Podman | 4.0+ |
-| Ansible | 2.14+ |
+| Podman Compose | 4.0+ |
 | Python | 3.11+ |
+| Ansible | 2.14+ |
 
 ---
 
@@ -165,18 +127,50 @@ El proyecto sigue una estructura de **Arquitectura Limpia (Clean Architecture)**
 .
 ├── README.md                          # Este archivo
 ├── SPEC.md                            # Especificación técnica
-├── pyproject.toml                     # Configuración pytest + coverage
-├── sonar-project.properties           # Configuración SonarQube
-├── docker-compose.yml                 # Orquestación de contenedores
-├── docker-compose.sonarqube.yml       # SonarQube
+├── pyproject.toml                     # Configuración pytest
+├── .env.example                       # Template de variables
 ├── .gitignore                         # Archivos ignorados
 │
-├── scripts/                           # Capa de Aplicación
-│   ├── create-utm-vm.sh              # Crear VM en UTM
-│   ├── cloud-init/
-│   │   └── user-data.yml             # Cloud-init config
-│   ├── init-secrets.sh               # Inicializar OpenBao
-│   └── health-check.sh               # Verificar servicios
+├── pods/                              # Contenedores por POD
+│   ├── pod1-cicd-devsecops/          # CI/CD + DevSecOps
+│   │   ├── docker-compose.yml
+│   │   ├── config/                   # Configs de servicios
+│   │   ├── scripts/
+│   │   └── data/
+│   │
+│   ├── pod2-monitoring-zabbix/       # Zabbix multi-versión
+│   │   ├── docker-compose.yml
+│   │   ├── config/
+│   │   ├── scripts/
+│   │   └── data/
+│   │
+│   ├── pod3-services-demo/           # Servicios demo
+│   │   ├── docker-compose.yml
+│   │   ├── config/
+│   │   ├── scripts/
+│   │   └── data/
+│   │
+│   ├── pod4-observability-dora/      # Observabilidad DORA
+│   │   ├── docker-compose.yml
+│   │   ├── config/
+│   │   ├── scripts/
+│   │   └── data/
+│   │
+│   └── pod5-provisioning/            # Terraform + Ansible
+│       ├── docker-compose.yml
+│       ├── config/
+│       ├── terraform/
+│       ├── ansible/
+│       ├── inventory/
+│       ├── inspec/
+│       └── data/
+│
+├── scripts/                           # Scripts globales
+│   ├── init-all-pods.sh              # Inicializar todos los PODs
+│   ├── init-secrets.sh              # Inicializar OpenBao
+│   ├── load-secrets.sh              # Cargar secrets a .env
+│   ├── backup-weekly.sh             # Backup semanal
+│   └── health-check.sh              # Verificación de salud
 │
 ├── ansible/                           # Configuración VM
 │   ├── inventory.ini
@@ -184,415 +178,325 @@ El proyecto sigue una estructura de **Arquitectura Limpia (Clean Architecture)**
 │   ├── prepare-vm.yml
 │   ├── setup-podman.yml
 │   └── roles/
-│       ├── lvm/
-│       │   └── tasks/main.yml
-│       └── podman/
-│           ├── tasks/main.yml
-│           └── templates/
-│               └── storage.conf.j2
-│
-├── configs/                           # Capa de Dominio
-│   ├── openbao/
-│   │   └── config.hcl
-│   ├── nginx/
-│   │   └── nginx.conf
-│   └── fastapi/
-│       ├── Dockerfile
-│       ├── main.py
-│       └── requirements.txt
-│
-├── tests/                             # Capa de Infraestructura
-│   ├── unit/
-│   │   └── test_scripts.py           # Tests unitarios
-│   ├── integration/
-│   │   └── test_services.py         # Tests de integración
-│   ├── security/
-│   │   └── test_security.py        # Tests de seguridad
-│   └── requirements.txt
-│
-├── tools/                             # Herramientas
-│   ├── linters/
-│   │   └── setup-linters.sh
-│   └── security/
-│       └── setup-security-tools.sh
 │
 ├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml                    # CI Pipeline
-│   │   └── cd.yml                    # CD Pipeline
-│   └── actions/
-│       ├── qa-skill.yml              # AI: Testing
-│       └── deploy-skill.yml           # AI: Deployment
+│   └── workflows/
+│       ├── ci.yml                   # CI Pipeline (Podman)
+│       └── cd.yml                   # CD Pipeline (Podman)
 │
 └── docs/
-    └── diagrams/                      # Diagramas C4
-        ├── c1-context.drawio
-        ├── c2-container.drawio
-        ├── c3-component.drawio
-        └── c4-code.drawio
+    └── diagrams/                     # Diagramas C4
 ```
 
 ---
 
 ## Inicio Rápido
 
-### Paso 1: Clonar el Repositorio
+### 1. Clonar repositorio
 
 ```bash
-git clone https://github.com/<your-repo>/zabbix-testing.git
-cd zabbix-testing
+git clone https://github.com/amc-sre-tools/zabbix-MaC-Lab.git
+cd zabbix-MaC-Lab
 ```
 
-### Paso 2: Instalar Herramientas
+### 2. Preparar entorno
 
 ```bash
-# Linters
-chmod +x tools/linters/setup-linters.sh
-./tools/linters/setup-linters.sh
+# Crear .env desde template
+cp .env.example .env
 
-# Security tools
-chmod +x tools/security/setup-security-tools.sh
-./tools/security/setup-security-tools.sh
+# Editar .env con tus secretos
+vim .env
 ```
 
-### Paso 3: Crear la VM en UTM
+### 3. Inicializar PODs
 
 ```bash
-cd scripts
-chmod +x create-utm-vm.sh
-./create-utm-vm.sh
+# Inicializar todos los PODs
+./scripts/init-all-pods.sh
+
+# O inicializar servicios individually
+cd pods/pod1-cicd-devsecops && podman compose up -d
 ```
 
-### Paso 4: Provisioning de la VM
+### 4. Verificar estado
 
 ```bash
-cd ansible
-ansible-playbook -i inventory.ini prepare-vm.yml
-ansible-playbook -i inventory.ini setup-podman.yml
-```
-
-### Paso 5: Desplegar Contenedores
-
-```bash
-podman compose up -d
-```
-
-### Paso 6: Verificar Servicios
-
-```bash
+# Health check rápido
 ./scripts/health-check.sh
+
+# Health check detallado
+./scripts/health-check.sh --verbose
+
+# Formato JSON (para monitoring)
+./scripts/health-check.sh --json
 ```
 
 ---
 
-## Testing y Calidad
+## PODs Detallados
 
-### Ejecución de Tests
+### POD1: CI/CD + DevSecOps
 
-```bash
-# Todos los tests con coverage
-pytest tests/ --cov=scripts --cov=configs --cov-fail-under=85 -v
+```
+Services:
+├── pod1-openbao      secrets management (KV v2)
+├── pod1-jenkins      CI/CD orchestration
+├── pod1-sonarqube    code analysis
+└── pod1-trivy        vulnerability scanner
 
-# Tests unitarios
-pytest tests/unit/ -v
-
-# Tests de integración
-pytest tests/integration/ -m integration -v
-
-# Tests de seguridad
-pytest tests/security/ -m security -v
+Puertos: 8200 (OpenBao), 8080 (Jenkins), 9000 (SonarQube)
+Red: 10.99.10.0/24
 ```
 
-### Cobertura
+### POD2: Monitoring Zabbix
 
-El proyecto requiere un mínimo de **85% de cobertura** en scripts y configs:
+```
+Services:
+├── pod2-postgresql           database (3 BDs: zabbix60, zabbix70, zabbix74)
+├── pod2-zabbix-server-6.0    Zabbix 6.0 LTS
+├── pod2-zabbix-web-6.0       Zabbix 6.0 Web (config: zabbix60.conf.php)
+├── pod2-zabbix-server-7.0    Zabbix 7.0
+├── pod2-zabbix-web-7.0       Zabbix 7.0 Web (config: zabbix70.conf.php)
+├── pod2-zabbix-server-7.4    Zabbix 7.4 LTS
+├── pod2-zabbix-web-7.4       Zabbix 7.4 Web (config: zabbix74.conf.php)
+└── pod2-zabbix-agent         Zabbix Agent
 
-```bash
-# Generar reporte HTML
-pytest --cov=scripts --cov=configs --cov-report=html
+Bases de datos separadas por versión:
+├── zabbix60 → Zabbix 6.0
+├── zabbix70 → Zabbix 7.0
+└── zabbix74 → Zabbix 7.4
 
-# Generar reporte XML (para CI/CD)
-pytest --cov=scripts --cov=configs --cov-report=xml
+Puertos: 5432, 8080-8082, 10060-10074
+Red: 10.99.20.0/24
 ```
 
-### Marcadores de Tests
+### POD3: Services Demo
 
-| Marcador | Descripción |
-|----------|-------------|
-| `@pytest.mark.unit` | Tests unitarios |
-| `@pytest.mark.integration` | Tests de integración |
-| `@pytest.mark.security` | Tests de seguridad |
-| `@pytest.mark.slow` | Tests que toman más de 5 segundos |
+```
+Services:
+├── pod3-mysql            MySQL 8.0
+├── pod3-redis            Redis 7
+├── pod3-mariadb          MariaDB 11
+├── pod3-rabbitmq         RabbitMQ 3.13
+├── pod3-nginx            Nginx
+├── pod3-fastapi          FastAPI
+└── pod3-node-exporter    Prometheus Node Exporter
 
----
-
-## Seguridad DevSecOps
-
-### Herramientas de Seguridad
-
-| Herramienta | Propósito | Comando |
-|-------------|-----------|---------|
-| **Trivy** | Vulnerability scanner | `trivy fs .` |
-| **Bandit** | Python security | `bandit -r configs/fastapi` |
-| **Hadolint** | Dockerfile lint | `hadolint configs/fastapi/Dockerfile` |
-| **Semgrep** | Static analysis | `semgrep --config=auto .` |
-| **Checkov** | IaC security | `checkov -d .` |
-
-### OWASP Compliance
-
-- ✅ Secret management con OpenBao
-- ✅ Container security scanning
-- ✅ Dependency vulnerability scanning
-- ✅ Infrastructure as Code validation
-- ✅ Network segmentation (3 redes separadas)
-- ✅ No hardcoded credentials
-
-### Ejecución de Security Scans
-
-```bash
-# Scan completo
-trivy fs --security-checks vuln,config .
-bandit -r configs/fastapi
-hadolint configs/fastapi/Dockerfile
-
-# Todo en uno
-chmod +x tools/security/setup-security-tools.sh
-./tools/security/setup-security-tools.sh
+Puertos: 3306, 3307, 6379, 5672, 80, 8000, 9100
+Red: 10.99.30.0/24
 ```
 
----
+### POD4: Observability DORA
 
-## Análisis de Código
+```
+Services:
+├── pod4-prometheus       Metrics
+├── pod4-alertmanager     Alerts
+├── pod4-grafana          Visualization
+├── pod4-elasticsearch   Logs storage
+├── pod4-kibana           Logs UI
+├── pod4-otel-collector   Tracing
+├── pod4-cadvisor         Container metrics
+└── pod4-metrics-exporter  MySQL exporter
 
-### SonarQube
-
-Para análisis de código con SonarQube:
-
-```bash
-# Iniciar SonarQube
-podman compose -f docker-compose.sonarqube.yml up -d
-
-# Esperar a que esté listo (~60s)
-# Acceder a http://localhost:9000
-
-# Credenciales por defecto
-# Usuario: admin
-# Contraseña: admin
-
-# Ejecutar análisis
-sonar-scanner -Dsonar.projectKey=zabbix-testing \
-  -Dsonar.sources=scripts,configs \
-  -Dsonar.host.url=http://localhost:9000
+Puertos: 9090, 9093, 3000, 9200, 5601, 4317, 8080
+Red: 10.99.40.0/24
 ```
 
-### Configuración
+### POD5: Provisioning
 
-El archivo `sonar-project.properties` contiene:
+```
+Services:
+├── pod5-terraform        Terraform CLI
+├── pod5-ansible          Ansible Runner
+├── pod5-ansible-navigator Ansible UI
+├── pod5-aws-cli          AWS CLI
+├── pod5-azure-cli        Azure CLI
+├── pod5-gcloud-cli       GCP CLI
+├── pod5-inspec           Compliance testing
+├── pod5-checkov          IaC security
+└── pod5-docs             Terraform docs
 
-- Project key: `zabbix-testing-environment`
-- Fuentes: scripts, configs, ansible
-- Cobertura: coverage.xml
-- Python version: 3.11
-
----
-
-## CI/CD
-
-### GitHub Actions
-
-#### Pipeline de CI (ci.yml)
-
-Se ejecuta en cada push y pull request:
-
-1. **Linting** - Ruff, yamllint, shellcheck, ansible-lint
-2. **Security Scanning** - Trivy, Bandit, Hadolint
-3. **Unit Tests** - pytest con coverage >85%
-4. **Integration Tests** - Tests de servicios
-5. **Build Containers** - Construcción de imágenes
-
-#### Pipeline de CD (cd.yml)
-
-Se ejecuta al hacer merge a main:
-
-1. **Deploy to VM** - Ansible provisioning
-2. **Deploy Containers** - podman compose
-3. **Deploy SonarQube** - Análisis de código
-
-### Usage
-
-```bash
-# Ejecución manual
-gh workflow run ci.yml
-gh workflow run cd.yml
-
-# Ver resultados
-gh run view
+Red: 10.99.50.0/24
 ```
 
 ---
 
-## Servicios
+## Scripts Globales
 
-### Puertos de Acceso
+### init-all-pods.sh
 
-| Servicio | Puerto | URL | Descripción |
-|----------|--------|-----|-------------|
-| OpenBao | 8200 | http://localhost:8200 | Gestión de secretos |
-| Zabbix 6.0 Web | 8080 | http://localhost:8080 | Interfaz Zabbix 6.0 |
-| Zabbix 7.0 Web | 8081 | http://localhost:8081 | Interfaz Zabbix 7.0 |
-| Zabbix 7.4 Web | 8082 | http://localhost:8082 | Interfaz Zabbix 7.4 |
-| Zabbix 6.0 Server | 10060 | localhost:10060 | Server Zabbix 6.0 |
-| Zabbix 7.0 Server | 10070 | localhost:10070 | Server Zabbix 7.0 |
-| Zabbix 7.4 Server | 10074 | localhost:10074 | Server Zabbix 7.4 |
-| Nginx | 80 | http://localhost:80 | Proxy reverso |
-| FastAPI | 8000 | http://localhost:8000 | API de simulación |
-| PostgreSQL | 5432 | localhost:5432 | Base de datos |
-| SonarQube | 9000 | http://localhost:9000 | Análisis de código |
+Inicializa todas las redes, verifica configs y lista servicios disponibles.
 
-### Credenciales por Defecto
+```bash
+./scripts/init-all-pods.sh
+```
 
-| Servicio | Usuario | Contraseña |
-|----------|---------|------------|
-| Zabbix | Admin | zabbix |
-| PostgreSQL | zabbix | zabbix_password |
-| OpenBao | root | root-token-dev-only (dev) |
-| SonarQube | admin | admin |
+### backup-weekly.sh
+
+Backup semanal de volúmenes, configuraciones y redes.
+
+```bash
+# Con variables personalizadas
+BACKUP_DIR=/path/to/backups ./scripts/backup-weekly.sh
+
+# Output: back-ups semanales en /backups
+```
+
+### health-check.sh
+
+Verifica estado de todos los PODs y servicios.
+
+```bash
+# Resumen
+./scripts/health-check.sh
+
+# Detallado
+./scripts/health-check.sh --verbose
+
+# JSON para monitoring
+./scripts/health-check.sh --json
+```
 
 ---
 
 ## Credenciales
 
-### Almacenamiento Seguro
-
-Las credenciales se almacenan en OpenBao (KV v2):
-
-| Secret Path | Claves |
-|-------------|--------|
-| `secret/data/postgresql/admin` | `postgres_password`, `zabbix_password` |
-| `secret/data/zabbix/credentials` | `db_user`, `db_password` |
-| `secret/data/zabbix/api-keys` | `api_token` |
-| `secret/data/fastapi/app` | `secret_key`, `api_key` |
-| `secret/data/nginx/ssl` | `cert`, `key`, `dhparam` |
-
-### Inicializar Secretos
+### Configurar OpenBao
 
 ```bash
-./scripts/init-secrets.sh
+# Inicializar secretos
+./scripts/init-secrets.sh -t <your-token>
+
+# Cargar a .env
+./scripts/load-secrets.sh
 ```
+
+### Secret Paths
+
+| Path | Keys |
+|------|------|
+| `secret/data/postgresql/admin` | postgres_password, zabbix_password |
+| `secret/data/zabbix/credentials` | db_user, db_password |
+| `secret/data/fastapi/app` | secret_key, api_key |
+| `secret/data/jenkins/credentials` | admin_password, jenkins_token |
 
 ---
 
-## Diagramas C4
+## CI/CD con Podman
 
-El proyecto incluye 4 niveles de diagramas C4 en formato draw.io:
+> **Nota**: El CI/CD primario usa **Jenkins** (POD1). GitHub Actions está disponible como backup en `.github-backup/`.
 
-| Diagrama | Archivo | Descripción |
-|---------|---------|-------------|
-| **C1 - Context** | `docs/diagrams/c1-context.drawio` | Visión general del sistema |
-| **C2 - Container** | `docs/diagrams/c2-container.drawio` | Contenedores y relaciones |
-| **C3 - Component** | `docs/diagrams/c3-component.drawio` | Componentes internos |
-| **C4 - Code** | `docs/diagrams/c4-code.drawio` | Estructura de código |
+### Jenkins (Primario)
 
-Para visualizar los diagramas, ábrelos en [draw.io](https://app.diagrams.net/).
+El proyecto usa Jenkins en POD1 para CI/CD:
+
+```bash
+# Jenkins está en POD1
+# Acceder: http://<vm-ip>:8080/jenkins
+
+# Los pipelines están en:
+# pods/pod1-cicd-devsecops/config/jenkinsfile-ci
+# pods/pod1-cicd-devsecops/config/jenkinsfile-cd
+```
+
+### GitHub Actions (Backup)
+
+ubicado en `.github-backup/workflows/`:
+
+```bash
+# Para usar GitHub Actions como backup:
+mv .github-backup/workflows .github/
+mv .github-backup/actions .github/
+```
+
+### Comandos Podman
+
+```bash
+# Iniciar un POD
+cd pods/pod1-cicd-devsecops
+podman compose up -d
+
+# Ver servicios
+podman compose ps
+
+# Logs
+podman compose logs -f
+
+# Detener
+podman compose down
+
+# Rebuild
+podman compose build --no-cache
+```
 
 ---
 
 ## Mantenimiento
 
-### Comandos Útiles
+### Comandos útiles
 
 ```bash
-# Iniciar servicios
-podman compose up -d
+# Ver todos los contenedores
+podman ps --format "{{.Names}}\t{{.Status}}"
 
-# Detener servicios
-podman compose down
+# Ver redes
+podman network ls
 
-# Reiniciar un servicio
-podman compose restart zabbix-6.0
+# Ver volúmenes
+podman volume ls
 
-# Ver logs
-podman compose logs -f
-
-# Actualizar contenedores
-podman compose pull
-podman compose up -d
-
-# Ver uso de recursos
+# Stats en tiempo real
 podman stats
 
-# Limpiar recursos
+# Limpiar recursos no usados
 podman system prune -a
 ```
 
-### Backups
+### Backup
 
 ```bash
-# Backup de PostgreSQL
-podman exec postgresql pg_dump -U zabbix zabbix > backup_$(date +%Y%m%d).sql
+# Backup manual
+./scripts/backup-weekly.sh
 
-# Backup de volúmenes
-podman volume ls
-podman volume save postgresql-data -o postgresql-data.tar
+# Restaurar volumen
+tar -xzf backup-file.tar.gz -C /var/lib/containers/storage/volumes/
 ```
 
 ---
 
 ## Solución de Problemas
 
-### La VM no inicia
-
-1. Verificar que UTM esté instalado correctamente
-2. Revisar la configuración en `scripts/create-utm-vm.sh`
-3. Verificar que la imagen de Ubuntu se descargó correctamente
-
-### Los contenedores no inician
+### POD no inicia
 
 ```bash
 # Ver logs
-podman compose logs <servicio>
-podman compose ps
-```
+podman compose logs <service>
 
-### No se puede conectar a OpenBao
-
-```bash
-# Verificar contenedor
-podman ps | grep openbao
-
-# Verificar puerto
-ss -tlnp | grep 8200
+# Verificar config
+podman compose config --services
 ```
 
 ### Problemas de red
 
 ```bash
-# Ver redes
+# Ver redes existentes
 podman network ls
 
-# Recrea las redes
-podman compose down
-podman compose up -d
+# Recreat redes
+podman network rm <network>
+podman network create --subnet 10.99.x.0/24 <network>
 ```
 
----
-
-## AI Agent Skills
-
-El proyecto incluye skills para agentes AI que facilitan el trabajo:
-
-### QA Skill
+### Health check fallando
 
 ```bash
-# Run tests via skill
-github actions run qa-skill.yml --arg "command=run-all-tests"
-```
+# Ver detallado
+./scripts/health-check.sh --verbose
 
-### Deployment Skill
-
-```bash
-# Deploy via skill
-github actions run deploy-skill.yml --arg "command=deploy-all"
+# Verificar servicios específicos
+curl http://localhost:<port>/health
 ```
 
 ---
@@ -600,17 +504,17 @@ github actions run deploy-skill.yml --arg "command=deploy-all"
 ## Contribuir
 
 1. Fork el repositorio
-2. Crea una rama (`git checkout -b feature/nueva-caracteristica`)
-3. Commit tus cambios (`git commit -am 'Agrega nueva característica'`)
+2. Crear rama (`git checkout -b feature/nueva-caracteristica`)
+3. Commit cambios (`git commit -am 'Agrega nueva característica'`)
 4. Push a la rama (`git push origin feature/nueva-caracteristica`)
-5. Crea un Pull Request
+5. Crear Pull Request
 
 ### Requisitos para PR
 
 - [ ] Tests pasando (`pytest --cov-fail-under=85`)
 - [ ] Linters pasando (`ruff check .`, `yamllint .`)
 - [ ] Security scans sin vulnerabilidades críticas
-- [ ] Coverage >85%
+- [ ] Docker-compose válido (`podman compose config`)
 
 ---
 
@@ -624,4 +528,4 @@ MIT License - Ver LICENSE para más detalles.
 
 - **Nombre**: Andrés M. Correa
 - **Email**: korc.dev@gmail.com
-- **GitHub**: [tu-usuario](https://github.com/tu-usuario)
+- **GitHub**: [amc-sre-tools](https://github.com/amc-sre-tools)
