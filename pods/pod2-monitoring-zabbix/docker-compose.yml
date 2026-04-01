@@ -82,6 +82,9 @@ services:
       DB_USER: ${POSTGRES_USER:-zabbix}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_SCHEMA: public
+      POSTGRES_DB: zabbix60
+      POSTGRES_USER: ${POSTGRES_USER:-zabbix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ZBX_SERVER_NAME: "Zabbix 6.0 LTS - Testing"
       TZ: America/Bogota
     volumes:
@@ -141,6 +144,9 @@ services:
       DB_USER: ${POSTGRES_USER:-zabbix}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_SCHEMA: public
+      POSTGRES_DB: zabbix70
+      POSTGRES_USER: ${POSTGRES_USER:-zabbix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ZBX_SERVER_NAME: "Zabbix 7.0 - Testing"
       TZ: America/Bogota
     volumes:
@@ -200,6 +206,9 @@ services:
       DB_USER: ${POSTGRES_USER:-zabbix}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_SCHEMA: public
+      POSTGRES_DB: zabbix74
+      POSTGRES_USER: ${POSTGRES_USER:-zabbix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ZBX_SERVER_NAME: "Zabbix 7.4 LTS - Testing"
       TZ: America/Bogota
     volumes:
