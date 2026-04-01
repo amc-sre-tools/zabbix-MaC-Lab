@@ -1,3 +1,4 @@
+
 services:
   # =============================================================================
   # POD2: Monitoring - PostgreSQL for Zabbix databases
@@ -72,7 +73,7 @@ services:
     container_name: pod2-zabbix-6.0-web
     hostname: pod2-zabbix-6.0-web
     ports:
-      - "8080:8080"
+      - "8083:8080"
     env_file:
       - ./config/zabbix-6.0.env
     environment:
