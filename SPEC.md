@@ -132,7 +132,7 @@
 |------------|------|---------|-----|---------|---------------|
 | PostgreSQL | Contenedor | 15 | pod2-monitoring-internal | 5432 | 3 BDs: zabbix60, zabbix70, zabbix74 |
 | Zabbix Server 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 10060 | zabbix60 |
-| Zabbix Web 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 8080 | zabbix60 |
+| Zabbix Web 6.0 | Contenedor | 6.0-latest | pod2-monitoring-internal | 8083 | zabbix60 |
 | Zabbix Server 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 10070 | zabbix70 |
 | Zabbix Web 7.0 | Contenedor | 7.0-latest | pod2-monitoring-internal | 8081 | zabbix70 |
 | Zabbix Server 7.4 | Contenedor | 7.4-latest | pod2-monitoring-internal | 10074 | zabbix74 |

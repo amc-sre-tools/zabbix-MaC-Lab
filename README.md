@@ -51,7 +51,7 @@ Este proyecto configura un ambiente de pruebas integral para Zabbix con arquitec
 ├─────────────────────────────────────┴──────────────────────────────┤
 │ • PostgreSQL (3 BDs)        :5432  │ • Zabbix 6.0 Server :10060    │
 │   - zabbix60 / zabbix70 / zabbix74 │ • Zabbix 7.0 Server :10070    │
-│ • Zabbix 6.0 Web        :8080    │ • Zabbix 7.4 Server :10074    │
+│ • Zabbix 6.0 Web        :8083    │ • Zabbix 7.4 Server :10074    │
 │ • Zabbix 7.0 Web        :8081    │ • Zabbix Agent    :10050      │
 │ • Zabbix 7.4 Web        :8082    │                                │
 │ • TZ: America/Bogota                                                │
