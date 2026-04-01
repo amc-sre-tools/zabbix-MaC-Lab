@@ -9,7 +9,8 @@ services:
     ports:
       - "8200:8200"
     environment:
-      BAO_DEV_ROOT_TOKEN_ID: ${BAO_DEV_ROOT_TOKEN_ID}
+      TZ: America/Bogota
+      BAO_DEV_ROOT_TOKEN_ID: ${BAO_DEV_ROOT_TOKEN_ID:-root-token-dev-only}
       BAO_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
       BAO_ADDR: "http://0.0.0.0:8200"
     volumes:
@@ -118,6 +119,8 @@ services:
     image: ghcr.io/aquasecurity/trivy:latest
     container_name: pod1-cicd-trivy
     hostname: pod1-trivy
+    ports:
+      - "4954:4954"
     volumes:
       - pod1-trivy-cache:/root/.cache/trivy
       - ./pods/pod1-cicd-devsecops/config/.trivy.yml:/root/.trivy.yml:ro
