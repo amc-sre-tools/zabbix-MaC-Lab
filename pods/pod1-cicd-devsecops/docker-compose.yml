@@ -128,10 +128,11 @@ services:
       - "4954:4954"
     volumes:
       - pod1-trivy-cache:/root/.cache/trivy
-      - ./pods/pod1-cicd-devsecops/config/.trivy.yml:/root/.trivy.yml:ro
+      - ./config/.trivy.yml:/root/.trivy.yml:ro
       - ./:/workspace:ro
     environment:
       TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+      TZ: America/Bogota
     networks:
       - pod1-cicd-internal
     restart: unless-stopped

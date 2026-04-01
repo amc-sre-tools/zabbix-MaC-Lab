@@ -61,6 +61,8 @@ services:
       - pod2-zabbix6-data:/var/lib/zabbix
       - ./config/zabbix60.conf.php:/etc/zabbix/web/zabbix.conf.php:ro
       - ./scripts/:/usr/local/bin/:ro
+      - ./zabbix_templates:/usr/share/zabbix/zabbix_export/templates:rw
+      - ./updates:/usr/share/zabbix/updates:rw
     networks:
       - pod2-monitoring-internal
     restart: unless-stopped
@@ -123,6 +125,8 @@ services:
       - pod2-zabbix7-data:/var/lib/zabbix
       - ./config/zabbix70.conf.php:/etc/zabbix/web/zabbix.conf.php:ro
       - ./scripts/:/usr/local/bin/:ro
+      - ./zabbix_templates:/usr/share/zabbix/zabbix_export/templates:rw
+      - ./updates:/usr/share/zabbix/updates:rw
     networks:
       - pod2-monitoring-internal
     restart: unless-stopped
@@ -185,6 +189,8 @@ services:
       - pod2-zabbix74-data:/var/lib/zabbix
       - ./config/zabbix74.conf.php:/etc/zabbix/web/zabbix.conf.php:ro
       - ./scripts/:/usr/local/bin/:ro
+      - ./zabbix_templates:/usr/share/zabbix/zabbix_export/templates:rw
+      - ./updates:/usr/share/zabbix/updates:rw
     networks:
       - pod2-monitoring-internal
     restart: unless-stopped
