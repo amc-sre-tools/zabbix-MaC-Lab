@@ -22,15 +22,10 @@ echo "=== Loading Secrets from OpenBao ==="
 load_secret() {
     local path=$1
     local key=$2
-    local var_name=$3
     
-    local value=$(curl -s -H "X-Vault-Token: $BAO_TOKEN" \
+    curl -s -H "X-Vault-Token: $BAO_TOKEN" \
         "$BAO_ADDR/v1/$path" | \
-        python3 -c "import sys, json; data = json.load(sys.stdin); print(data['data']['data'].get('$key', ''))" 2>/dev/null || echo "")
-    
-    if [ -n "$value" ]; then
-        echo "$var_name=$value"
-    fi
+        python3 -c "import sys, json; data = json.load(sys.stdin); print(data['data']['data'].get('$key', ''))" 2>/dev/null || echo ""
 }
 
 generate_env_file() {
@@ -45,41 +40,36 @@ generate_env_file() {
 
 EOF
     
-    # OpenBao
-    echo "BAO_DEV_ROOT_TOKEN_ID=${BAO_TOKEN}" >> "$ENV_FILE"
+    # POD1 - OpenBao
+    echo "# POD1 - OpenBao" >> "$ENV_FILE"
+    echo "BAO_DEV_ROOT_TOKEN_ID=$(load_secret 'secret/data/pod1/openbao' 'root_token')" >> "$ENV_FILE"
     echo "BAO_ADDR=${BAO_ADDR}" >> "$ENV_FILE"
+    echo "" >> "$ENV_FILE"
     
-    # PostgreSQL secrets
-    local pg_password=$(curl -s -H "X-Vault-Token: $BAO_TOKEN" \
-        "$BAO_ADDR/v1/secret/data/postgresql/admin" | \
-        python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data'].get('postgres_password', ''))" 2>/dev/null || echo "")
+    # POD1 - Jenkins
+    echo "# POD1 - Jenkins" >> "$ENV_FILE"
+    echo "JENKINS_USER=$(load_secret 'secret/data/pod1/jenkins' 'username')" >> "$ENV_FILE"
+    echo "JENKINS_PASSWORD=$(load_secret 'secret/data/pod1/jenkins' 'password')" >> "$ENV_FILE"
+    echo "" >> "$ENV_FILE"
     
-    local zabbix_password=$(curl -s -H "X-Vault-Token: $BAO_TOKEN" \
-        "$BAO_ADDR/v1/secret/data/postgresql/admin" | \
-        python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data'].get('zabbix_password', ''))" 2>/dev/null || echo "")
+    # POD1 - SonarQube
+    echo "# POD1 - SonarQube" >> "$ENV_FILE"
+    echo "SONARQUBE_USER=$(load_secret 'secret/data/pod1/sonarqube' 'username')" >> "$ENV_FILE"
+    echo "SONARQUBE_PASSWORD=$(load_secret 'secret/data/pod1/sonarqube' 'password')" >> "$ENV_FILE"
+    echo "SONARQUBE_DB_PASSWORD=$(load_secret 'secret/data/pod1/sonarqube' 'db_password')" >> "$ENV_FILE"
+    echo "" >> "$ENV_FILE"
     
-    echo "POSTGRES_DB=zabbix" >> "$ENV_FILE"
-    echo "POSTGRES_USER=zabbix" >> "$ENV_FILE"
-    echo "POSTGRES_PASSWORD=${zabbix_password}" >> "$ENV_FILE"
+    # POD2 - PostgreSQL
+    echo "# POD2 - PostgreSQL" >> "$ENV_FILE"
+    echo "POSTGRES_USER=$(load_secret 'secret/data/pod2/postgresql' 'username')" >> "$ENV_FILE"
+    echo "POSTGRES_PASSWORD=$(load_secret 'secret/data/pod2/postgresql' 'zabbix_password')" >> "$ENV_FILE"
+    echo "" >> "$ENV_FILE"
     
-    # FastAPI secrets
-    local fastapi_secret=$(curl -s -H "X-Vault-Token: $BAO_TOKEN" \
-        "$BAO_ADDR/v1/secret/data/fastapi/app" | \
-        python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data'].get('secret_key', ''))" 2>/dev/null || echo "")
-    
-    local fastapi_key=$(curl -s -H "X-Vault-Token: $BAO_TOKEN" \
-        "$BAO_ADDR/v1/secret/data/fastapi/app" | \
-        python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data'].get('api_key', ''))" 2>/dev/null || echo "")
-    
-    echo "FASTAPI_SECRET_KEY=${fastapi_secret}" >> "$ENV_FILE"
-    echo "FASTAPI_API_KEY=${fastapi_key}" >> "$ENV_FILE"
-    
-    # Zabbix API
-    local zabbix_api_token=$(curl -s -H "X-Vault-Token: $BAO_TOKEN" \
-        "$BAO_ADDR/v1/secret/data/zabbix/api-keys" | \
-        python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data'].get('api_token', ''))" 2>/dev/null || echo "")
-    
-    echo "ZABBIX_API_TOKEN=${zabbix_api_token}" >> "$ENV_FILE"
+    # POD2 - Zabbix
+    echo "# POD2 - Zabbix" >> "$ENV_FILE"
+    echo "ZABBIX_ADMIN_USER=$(load_secret 'secret/data/pod2/zabbix' 'admin_user')" >> "$ENV_FILE"
+    echo "ZABBIX_ADMIN_PASSWORD=$(load_secret 'secret/data/pod2/zabbix' 'admin_password')" >> "$ENV_FILE"
+    echo "ZABBIX_API_TOKEN=$(load_secret 'secret/data/pod2/zabbix' 'api_token')" >> "$ENV_FILE"
     
     echo "[OK] $ENV_FILE generated successfully"
     echo ""
